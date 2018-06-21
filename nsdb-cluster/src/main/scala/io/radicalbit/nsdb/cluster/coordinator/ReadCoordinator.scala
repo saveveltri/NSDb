@@ -87,13 +87,13 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
     case msg: GetSchema =>
       metricsSchemaActor forward msg
 
-    case SelectStatementFailed(reason, _, requestId, replyTo) =>
+    case SelectStatementFailed(reason, errorCode, purpose, requestId, replyTo) =>
       processingRequests.get(requestId).foreach { _ =>
-        replyTo ! SelectStatementFailed(reason)
+        replyTo ! SelectStatementFailed(reason, errorCode, purpose, requestId)
         processingRequests -= requestId
       }
 
-    case msg @ SelectStatementExecuted(_, _, _, values, requestId, replyTo) =>
+    case msg @ SelectStatementExecuted(_, _, _, values, _, requestId, replyTo) =>
       processingRequests.get(requestId).foreach { requestStatus =>
         requestStatus.partials += values
         if (requestStatus.partials.size == requestStatus.noPartialNeeded) {
@@ -102,22 +102,22 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
         }
       }
 
-    case SchemaGot(_, _, _, Some(schema), requestId, replyTo) =>
+    case SchemaGot(_, _, _, Some(schema), purpose, requestId, replyTo) =>
       processingRequests.get(requestId).foreach { reqStatus =>
         metricsDataActors.values.toSeq.foreach(actor =>
-          actor ! ExecuteSelectStatement(reqStatus.statement, schema, requestId, replyTo))
+          actor ! ExecuteSelectStatement(reqStatus.statement, schema, purpose, requestId, replyTo))
       }
 
-    case SchemaGot(_, _, metric, None, requestId, replyTo) =>
+    case SchemaGot(_, _, metric, None, _, requestId, replyTo) =>
       processingRequests -= requestId
       replyTo ! SelectStatementFailed(s"Metric $metric does not exist ", MetricNotFound(metric))
 
-    case ExecuteStatement(statement) =>
+    case ExecuteStatement(statement, purpose) =>
       val requestId = UUID.randomUUID().toString
       log.debug("executing request {} with id {} at {}", statement, requestId, System.currentTimeMillis())
       processingRequests += (requestId -> PendingRequestStatus(statement = statement,
                                                                noPartialNeeded = metricsDataActors.size))
-      metricsSchemaActor ! GetSchema(statement.db, statement.namespace, statement.metric, requestId, sender)
+      metricsSchemaActor ! GetSchema(statement.db, statement.namespace, statement.metric, purpose, requestId, sender)
   }
 }
 

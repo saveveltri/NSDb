@@ -237,7 +237,7 @@ trait CommandApi {
                                                        header,
                                                        writePermission = false) {
                   onComplete(readCoordinator ? GetSchema(db, namespace, metric)) {
-                    case Success(SchemaGot(_, _, _, Some(schema), _, _)) =>
+                    case Success(SchemaGot(_, _, _, Some(schema), _, _, _)) =>
                       complete(
                         HttpEntity(
                           ContentTypes.`application/json`,
@@ -250,7 +250,7 @@ trait CommandApi {
                           )
                         )
                       )
-                    case Success(SchemaGot(_, _, _, None, _, _)) =>
+                    case Success(SchemaGot(_, _, _, None, _, _, _)) =>
                       complete(HttpResponse(NotFound))
                     case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                     case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))

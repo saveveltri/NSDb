@@ -31,11 +31,9 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.duration._
-
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(_) =>
+    case ExecuteStatement(_, _) =>
       sender() ! SelectStatementExecuted(db = "db", namespace = "registry", metric = "people", values = Seq.empty)
   }
 }

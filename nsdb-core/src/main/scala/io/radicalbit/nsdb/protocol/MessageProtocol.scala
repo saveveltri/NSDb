@@ -22,11 +22,25 @@ import io.radicalbit.nsdb.actors.ShardKey
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.protocol.MessageProtocol.Auxiliars.{GenericPurpose, SelectStatementPurpose}
 
 /**
   * common messages exchanged among all the nsdb actors.
   */
 object MessageProtocol {
+
+  /**
+    * auxiliars case classes to use in commands and events.
+    */
+  object Auxiliars {
+
+    sealed trait SelectStatementPurpose
+    case object SubscribeBySqlPurpose extends SelectStatementPurpose
+    case object SubscribeByIdPurpose  extends SelectStatementPurpose
+    case object PublishPurpose        extends SelectStatementPurpose
+    case object GenericPurpose        extends SelectStatementPurpose
+
+  }
 
   /**
     * commands executed among nsdb actors.
@@ -38,12 +52,14 @@ object MessageProtocol {
     case class GetSchema(db: String,
                          namespace: String,
                          metric: String,
+                         purpose: SelectStatementPurpose = GenericPurpose,
                          requestId: String = "notRelevant",
                          replyTo: ActorRef = ActorRef.noSender)
 
-    case class ExecuteStatement(selectStatement: SelectSQLStatement)
+    case class ExecuteStatement(selectStatement: SelectSQLStatement, purpose: SelectStatementPurpose = GenericPurpose)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
+                                      purpose: SelectStatementPurpose = GenericPurpose,
                                       requestId: String = "notRelevant",
                                       replyTo: ActorRef = ActorRef.noSender)
 
@@ -86,6 +102,7 @@ object MessageProtocol {
                          namespace: String,
                          metric: String,
                          schema: Option[Schema],
+                         purpose: SelectStatementPurpose,
                          requestId: String,
                          replyTo: ActorRef = ActorRef.noSender)
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
@@ -93,10 +110,12 @@ object MessageProtocol {
                                        namespace: String,
                                        metric: String,
                                        values: Seq[Bit],
+                                       purpose: SelectStatementPurpose = GenericPurpose,
                                        requestId: String = "notRelevant",
                                        replyTo: ActorRef = ActorRef.noSender)
     case class SelectStatementFailed(reason: String,
                                      errorCode: ErrorCode = Generic,
+                                     purpose: SelectStatementPurpose = GenericPurpose,
                                      requestId: String = "notRelevant",
                                      replyTo: ActorRef = ActorRef.noSender)
 

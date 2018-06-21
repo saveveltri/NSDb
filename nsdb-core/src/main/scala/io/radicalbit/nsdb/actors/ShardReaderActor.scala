@@ -242,7 +242,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity).size
       }.sum
       sender ! CountGot(db, ns, metric, hits)
-    case ExecuteSelectStatement(statement, schema, requestId, replyTo) =>
+    case ExecuteSelectStatement(statement, schema, purpose, requestId, replyTo) =>
       val postProcessedResult: Try[Seq[Bit]] =
         statementParser.parseStatement(statement, schema) match {
           case Success(parsedStatement @ ParsedSimpleQuery(_, metric, _, false, limit, fields, _)) =>
@@ -328,10 +328,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
       postProcessedResult match {
         case Success(bits) =>
-          sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits, requestId, replyTo)
+          sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits, purpose, requestId, replyTo)
         case Failure(ex: InvalidStatementException) =>
-          sender() ! SelectStatementFailed(ex.message, Generic, requestId, replyTo)
-        case Failure(ex) => sender() ! SelectStatementFailed(ex.getMessage, Generic, requestId, replyTo)
+          sender() ! SelectStatementFailed(ex.message, Generic, purpose, requestId, replyTo)
+        case Failure(ex) => sender() ! SelectStatementFailed(ex.getMessage, Generic, purpose, requestId, replyTo)
       }
     case DropMetric(_, _, metric) =>
       shardsForMetric(metric).foreach {

@@ -141,7 +141,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       log.debug("Received command DescribeMetric for metric {}", request.metric)
       (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
         .map {
-          case SchemaGot(db, namespace, metric, schema, _, _) =>
+          case SchemaGot(db, namespace, metric, schema, _, _, _) =>
             val fields = schema
               .map(
                 _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))
@@ -274,7 +274,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
               (readCoordinator ? ExecuteStatement(select))
                 .map {
                   // SelectExecution Success
-                  case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit], _, _) =>
+                  case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit], _, _, _) =>
                     log.debug("SQL statement succeeded on db {} with namespace {} and metric {}",
                               db,
                               namespace,
@@ -287,7 +287,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       records = values.map(toGrpcBit)
                     )
                   // SelectExecution Failure
-                  case SelectStatementFailed(reason, _, _, _) =>
+                  case SelectStatementFailed(reason, _, _, _, _) =>
                     SQLStatementResponse(
                       db = requestDb,
                       namespace = requestNamespace,

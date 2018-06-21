@@ -124,7 +124,7 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
                 subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
                 queries += (id                   -> NsdbQuery(id, query))
                 SubscribedByQueryString(queryString, id, e.values)
-              case SelectStatementFailed(reason, _, _, _) => SubscriptionByQueryStringFailed(queryString, reason)
+              case SelectStatementFailed(reason, _, _, _, _) => SubscriptionByQueryStringFailed(queryString, reason)
             }
             .pipeTo(sender())
         } {
@@ -145,7 +145,7 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
                 val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(quid, Set.empty)
                 subscribedActorsByQueryId += (quid -> (previousRegisteredActors + actor))
                 SubscribedByQuid(quid, e.values)
-              case SelectStatementFailed(reason, _, _, _) => SubscriptionByQuidFailed(quid, reason)
+              case SelectStatementFailed(reason, _, _, _, _) => SubscriptionByQuidFailed(quid, reason)
             }
             .pipeTo(sender())
         case None => sender ! SubscriptionByQuidFailed(quid, s"quid $quid not found")
