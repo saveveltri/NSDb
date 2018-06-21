@@ -58,7 +58,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     val reader = readerOpt.getOrElse(
       context.actorOf(
         readParallelism.pool.props(
-          ShardReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
+          ShardReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.reader-pinned-dispatcher")),
         s"shard_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(

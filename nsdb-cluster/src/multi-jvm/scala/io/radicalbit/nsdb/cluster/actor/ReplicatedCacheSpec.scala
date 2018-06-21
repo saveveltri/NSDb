@@ -26,6 +26,15 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     | control-aware-dispatcher {
     |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
     |   }
+    | reader-pinned-dispatcher {
+    |      executor = "thread-pool-executor"
+    |      type = PinnedDispatcher
+    |      thread-pool-executor {
+    |        core-pool-size-min = 2
+    |        core-pool-size-factor = 2.0
+    |        core-pool-size-max = 10
+    |      }
+    |    }
     |}
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
