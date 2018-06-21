@@ -85,7 +85,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
-  override def getIndex(key: ShardKey) =
+  override def getIndex(key: ShardKey): TimeSeriesIndex =
     shards.getOrElse(
       key, {
         val directory =
@@ -242,7 +242,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity).size
       }.sum
       sender ! CountGot(db, ns, metric, hits)
-    case ExecuteSelectStatement(statement, schema) =>
+    case ExecuteSelectStatement(statement, schema, requestId, replyTo) =>
       val postProcessedResult: Try[Seq[Bit]] =
         statementParser.parseStatement(statement, schema) match {
           case Success(parsedStatement @ ParsedSimpleQuery(_, metric, _, false, limit, fields, _)) =>
@@ -327,11 +327,13 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         }
 
       postProcessedResult match {
-        case Success(bits)                          => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
-        case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
-        case Failure(ex)                            => sender() ! SelectStatementFailed(ex.getMessage)
+        case Success(bits) =>
+          sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits, requestId, replyTo)
+        case Failure(ex: InvalidStatementException) =>
+          sender() ! SelectStatementFailed(ex.message, Generic, requestId, replyTo)
+        case Failure(ex) => sender() ! SelectStatementFailed(ex.getMessage, Generic, requestId, replyTo)
       }
-    case msg @ DropMetric(_, _, metric) =>
+    case DropMetric(_, _, metric) =>
       shardsForMetric(metric).foreach {
         case (key, index) =>
           implicit val writer: IndexWriter = index.getWriter

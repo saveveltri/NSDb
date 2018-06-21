@@ -165,11 +165,11 @@ trait QueryApi {
               statementOpt match {
                 case Some(statement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
-                    case Success(SelectStatementExecuted(_, _, _, values)) =>
+                    case Success(SelectStatementExecuted(_, _, _, values, _, _)) =>
                       complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
-                    case Success(SelectStatementFailed(reason, MetricNotFound(metric))) =>
+                    case Success(SelectStatementFailed(reason, MetricNotFound(metric), _, _)) =>
                       complete(HttpResponse(NotFound, entity = reason))
-                    case Success(SelectStatementFailed(reason, _)) =>
+                    case Success(SelectStatementFailed(reason, _, _, _)) =>
                       complete(HttpResponse(InternalServerError, entity = reason))
                     case Success(_) =>
                       complete(HttpResponse(InternalServerError, entity = "unknown response"))

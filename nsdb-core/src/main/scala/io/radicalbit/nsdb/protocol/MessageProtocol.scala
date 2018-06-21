@@ -38,11 +38,14 @@ object MessageProtocol {
     case class GetSchema(db: String,
                          namespace: String,
                          metric: String,
-                         requestId: String = "notRelevantRequest",
+                         requestId: String = "notRelevant",
                          replyTo: ActorRef = ActorRef.noSender)
 
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
-    case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
+    case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
+                                      schema: Schema,
+                                      requestId: String = "notRelevant",
+                                      replyTo: ActorRef = ActorRef.noSender)
 
     case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)
     case class PublishRecord(db: String, namespace: String, metric: String, record: Bit, schema: Schema)
@@ -86,8 +89,16 @@ object MessageProtocol {
                          requestId: String,
                          replyTo: ActorRef = ActorRef.noSender)
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
-    case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
-    case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)
+    case class SelectStatementExecuted(db: String,
+                                       namespace: String,
+                                       metric: String,
+                                       values: Seq[Bit],
+                                       requestId: String = "notRelevant",
+                                       replyTo: ActorRef = ActorRef.noSender)
+    case class SelectStatementFailed(reason: String,
+                                     errorCode: ErrorCode = Generic,
+                                     requestId: String = "notRelevant",
+                                     replyTo: ActorRef = ActorRef.noSender)
 
     case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
     case class DeleteStatementExecuted(db: String, namespace: String, metric: String)

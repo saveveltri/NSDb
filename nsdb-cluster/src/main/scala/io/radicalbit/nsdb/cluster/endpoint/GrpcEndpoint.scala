@@ -274,7 +274,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
               (readCoordinator ? ExecuteStatement(select))
                 .map {
                   // SelectExecution Success
-                  case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit]) =>
+                  case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit], _, _) =>
                     log.debug("SQL statement succeeded on db {} with namespace {} and metric {}",
                               db,
                               namespace,
@@ -287,7 +287,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       records = values.map(toGrpcBit)
                     )
                   // SelectExecution Failure
-                  case SelectStatementFailed(reason, _) =>
+                  case SelectStatementFailed(reason, _, _, _) =>
                     SQLStatementResponse(
                       db = requestDb,
                       namespace = requestNamespace,

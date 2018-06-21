@@ -27,12 +27,14 @@ import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Commands.GetConnectedNodes
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Events.ConnectedNodesGot
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.PendingRequestStatus
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
 /**
@@ -85,29 +87,49 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
     case msg: GetSchema =>
       metricsSchemaActor forward msg
 
-    case SchemaGot(_, _, _, Some(schema), requestId, replyTo) =>
-      val statement = processingRequests(requestId).statement
-      Future
-        .sequence(metricsDataActors.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
-        .map { seq =>
-          val errs = seq.collect {
-            case e: SelectStatementFailed => e.reason
-          }
-          if (errs.isEmpty) {
-            val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
-            SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results.flatMap(_.values))
-          } else {
-            SelectStatementFailed(errs.mkString(","))
-          }
-        }
-        .recoverWith {
-          case t => Future(SelectStatementFailed(t.getMessage))
-        }
-        .pipeToWithEffect(replyTo) { _ =>
+    case SelectStatementFailed(reason, _, requestId, replyTo) =>
+      processingRequests.get(requestId).foreach { _ =>
+        replyTo ! SelectStatementFailed(reason)
+        processingRequests -= requestId
+      }
+
+    case msg @ SelectStatementExecuted(_, _, _, values, requestId, replyTo) =>
+      processingRequests.get(requestId).foreach { requestStatus =>
+        requestStatus.partials += values
+        if (requestStatus.partials.size == requestStatus.noPartialNeeded) {
+          replyTo ! msg
           processingRequests -= requestId
-          if (perfLogger.isDebugEnabled)
-            perfLogger.debug("statement {} executed at  {}", requestId, System.currentTimeMillis())
         }
+      }
+
+    case SchemaGot(_, _, _, Some(schema), requestId, replyTo) =>
+      processingRequests.get(requestId).foreach { reqStatus =>
+        metricsDataActors.values.toSeq.foreach(actor =>
+          actor ! ExecuteSelectStatement(reqStatus.statement, schema, requestId, replyTo))
+      }
+
+//      val statement = processingRequests(requestId).statement
+//      Future
+//        .sequence(metricsDataActors.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
+//        .map { seq =>
+//          val errs = seq.collect {
+//            case e: SelectStatementFailed => e.reason
+//          }
+//          if (errs.isEmpty) {
+//            val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
+//            SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results.flatMap(_.values))
+//          } else {
+//            SelectStatementFailed(errs.mkString(","))
+//          }
+//        }
+//        .recoverWith {
+//          case t => Future(SelectStatementFailed(t.getMessage))
+//        }
+//        .pipeToWithEffect(replyTo) { _ =>
+//          processingRequests -= requestId
+//          if (perfLogger.isDebugEnabled)
+//            perfLogger.debug("statement {} executed at  {}", requestId, System.currentTimeMillis())
+//        }
 
     case SchemaGot(_, _, metric, None, requestId, replyTo) =>
       processingRequests -= requestId
@@ -116,15 +138,18 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
     case ExecuteStatement(statement) =>
       val requestId = UUID.randomUUID().toString
       log.debug("executing request {} with id {} at {}", statement, requestId, System.currentTimeMillis())
-      processingRequests += (requestId -> PendingRequestStatus(statement))
+      processingRequests += (requestId -> PendingRequestStatus(statement = statement,
+                                                               noPartialNeeded = metricsDataActors.size))
       metricsSchemaActor ! GetSchema(statement.db, statement.namespace, statement.metric, requestId, sender)
   }
 }
 
 object ReadCoordinator {
 
-  private case class PendingRequestStatus(statement: SelectSQLStatement, startTimestamp: Long = System.currentTimeMillis(), partials: mutable.Seq[String] = mutable.Seq.empty)
-
+  private case class PendingRequestStatus(statement: SelectSQLStatement,
+                                          startTimestamp: Long = System.currentTimeMillis(),
+                                          noPartialNeeded: Int,
+                                          partials: ListBuffer[Seq[Bit]] = ListBuffer.empty)
 
   object Commands {
     private[coordinator] case object GetConnectedNodes
