@@ -97,7 +97,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
       processingRequests.get(requestId).foreach { requestStatus =>
         requestStatus.partials += values
         if (requestStatus.partials.size == requestStatus.noPartialNeeded) {
-          replyTo ! msg
+          replyTo ! requestStatus.originalSender.map(o => msg.copy(replyTo = o)).getOrElse(msg)
           //TODO perf log
           //TODO scheduler that clean old requests
           processingRequests -= requestId
@@ -119,15 +119,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
       log.debug("executing request {} with id {} at {}", statement, requestId, System.currentTimeMillis())
       processingRequests += (requestId -> PendingRequestStatus(
         statement = statement,
-//                                                               originalSender = originalSender,
+        originalSender = originalSender,
         noPartialNeeded = metricsDataActors.size
       ))
-      metricsSchemaActor ! GetSchema(statement.db,
-                                     statement.namespace,
-                                     statement.metric,
-                                     purpose,
-                                     requestId,
-                                     originalSender getOrElse sender)
+      metricsSchemaActor ! GetSchema(statement.db, statement.namespace, statement.metric, purpose, requestId, sender)
   }
 }
 
@@ -135,7 +130,7 @@ object ReadCoordinator {
 
   private case class PendingRequestStatus(statement: SelectSQLStatement,
                                           startTimestamp: Long = System.currentTimeMillis(),
-//                                          originalSender: Option[ActorRef],
+                                          originalSender: Option[ActorRef],
                                           noPartialNeeded: Int,
                                           partials: ListBuffer[Seq[Bit]] = ListBuffer.empty)
 
