@@ -56,7 +56,9 @@ object MessageProtocol {
                          requestId: String = "notRelevant",
                          replyTo: ActorRef = ActorRef.noSender)
 
-    case class ExecuteStatement(selectStatement: SelectSQLStatement, purpose: SelectStatementPurpose = GenericPurpose)
+    case class ExecuteStatement(selectStatement: SelectSQLStatement,
+                                purpose: SelectStatementPurpose = GenericPurpose,
+                                originalSender: Option[ActorRef] = None)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
                                       purpose: SelectStatementPurpose = GenericPurpose,

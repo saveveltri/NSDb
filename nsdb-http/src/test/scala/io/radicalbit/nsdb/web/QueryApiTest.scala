@@ -44,7 +44,7 @@ object QueryApiTest {
   class FakeReadCoordinator extends Actor {
     import FakeReadCoordinator._
     override def receive: Receive = {
-      case ExecuteStatement(statement, _)
+      case ExecuteStatement(statement, _, _)
           if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
         new StatementParser()
           .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
@@ -56,7 +56,7 @@ object QueryApiTest {
                                              bitsParametrized(e.value1, e.value2))
           case Failure(_) => sender ! SelectStatementFailed("statement not valid")
         }
-      case ExecuteStatement(statement, _) =>
+      case ExecuteStatement(statement, _, _) =>
         new StatementParser()
           .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
           case scala.util.Success(_) =>

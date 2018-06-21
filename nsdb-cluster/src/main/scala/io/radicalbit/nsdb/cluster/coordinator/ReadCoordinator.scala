@@ -98,6 +98,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
         requestStatus.partials += values
         if (requestStatus.partials.size == requestStatus.noPartialNeeded) {
           replyTo ! msg
+          //TODO perf log
+          //TODO scheduler that clean old requests
           processingRequests -= requestId
         }
       }
@@ -112,12 +114,20 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
       processingRequests -= requestId
       replyTo ! SelectStatementFailed(s"Metric $metric does not exist ", MetricNotFound(metric))
 
-    case ExecuteStatement(statement, purpose) =>
+    case ExecuteStatement(statement, purpose, originalSender) =>
       val requestId = UUID.randomUUID().toString
       log.debug("executing request {} with id {} at {}", statement, requestId, System.currentTimeMillis())
-      processingRequests += (requestId -> PendingRequestStatus(statement = statement,
-                                                               noPartialNeeded = metricsDataActors.size))
-      metricsSchemaActor ! GetSchema(statement.db, statement.namespace, statement.metric, purpose, requestId, sender)
+      processingRequests += (requestId -> PendingRequestStatus(
+        statement = statement,
+//                                                               originalSender = originalSender,
+        noPartialNeeded = metricsDataActors.size
+      ))
+      metricsSchemaActor ! GetSchema(statement.db,
+                                     statement.namespace,
+                                     statement.metric,
+                                     purpose,
+                                     requestId,
+                                     originalSender getOrElse sender)
   }
 }
 
@@ -125,6 +135,7 @@ object ReadCoordinator {
 
   private case class PendingRequestStatus(statement: SelectSQLStatement,
                                           startTimestamp: Long = System.currentTimeMillis(),
+//                                          originalSender: Option[ActorRef],
                                           noPartialNeeded: Int,
                                           partials: ListBuffer[Seq[Bit]] = ListBuffer.empty)
 

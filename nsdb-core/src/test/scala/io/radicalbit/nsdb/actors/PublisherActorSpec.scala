@@ -32,7 +32,7 @@ import scala.concurrent.duration._
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(_, _) =>
+    case ExecuteStatement(_, _, _) =>
       sender() ! SelectStatementExecuted(db = "db", namespace = "registry", metric = "people", values = Seq.empty)
   }
 }
