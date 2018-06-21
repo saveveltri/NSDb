@@ -50,7 +50,7 @@ class MetricsSchemaActor(val basePath: String) extends Actor with ActorLogging {
   import context.dispatcher
 
   override def receive: Receive = {
-    case msg @ GetSchema(db, namespace, _) =>
+    case msg @ GetSchema(db, namespace, _, _, _) =>
       getSchemaActor(db, namespace).forward(msg)
     case msg @ UpdateSchemaFromRecord(db, namespace, _, _) =>
       getSchemaActor(db, namespace).forward(msg)

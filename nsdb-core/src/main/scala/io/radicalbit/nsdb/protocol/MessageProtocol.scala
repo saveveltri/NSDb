@@ -35,11 +35,15 @@ object MessageProtocol {
     case object GetDbs                                   extends ControlMessage
     case class GetNamespaces(db: String)                 extends ControlMessage
     case class GetMetrics(db: String, namespace: String) extends ControlMessage
-    case class GetSchema(db: String, namespace: String, metric: String)
+    case class GetSchema(db: String,
+                         namespace: String,
+                         metric: String,
+                         requestId: String = "notRelevantRequest",
+                         replyTo: ActorRef = ActorRef.noSender)
+
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
 
-    case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
     case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)
     case class PublishRecord(db: String, namespace: String, metric: String, record: Bit, schema: Schema)
     case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
@@ -75,7 +79,12 @@ object MessageProtocol {
 
     case class DbsGot(dbs: Set[String])
     case class NamespacesGot(db: String, namespaces: Set[String])
-    case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
+    case class SchemaGot(db: String,
+                         namespace: String,
+                         metric: String,
+                         schema: Option[Schema],
+                         requestId: String,
+                         replyTo: ActorRef = ActorRef.noSender)
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
     case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)

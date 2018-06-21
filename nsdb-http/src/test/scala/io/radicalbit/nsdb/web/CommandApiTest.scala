@@ -59,8 +59,8 @@ object CommandApiTest {
                 sender() ! NamespacesGot(db, namespaces)
             case GetMetrics(db, namespace) =>
                 sender ! MetricsGot(db, namespace, metrics)
-            case GetSchema(db, namespace, metric) =>
-                sender() ! SchemaGot(db, namespace, metric, schemas.get(metric))
+            case GetSchema(db, namespace, metric, requestId, replyTo) =>
+                sender() ! SchemaGot(db, namespace, metric, schemas.get(metric), requestId, replyTo)
         }
     }
 

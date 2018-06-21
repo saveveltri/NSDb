@@ -252,7 +252,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
             else
               (metricsSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
                 .flatMap {
-                  case SchemaGot(_, _, _, Some(schema)) =>
+                  case SchemaGot(_, _, _, Some(schema), _, _) =>
                     (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
                       case LocationsGot(_, _, _, locations) if locations.isEmpty =>
                         Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))

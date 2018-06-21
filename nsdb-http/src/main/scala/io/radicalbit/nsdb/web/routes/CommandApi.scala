@@ -69,7 +69,7 @@ trait CommandApi {
     ))
   def showDbs: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      optionalHeaderValueByName(authenticationProvider.headerName) { _ =>
         path("dbs") {
           (pathEnd & get) {
             onComplete(readCoordinator ? GetDbs) {
@@ -103,7 +103,7 @@ trait CommandApi {
         pathPrefix(Segment) { db =>
           path("namespaces") {
             (pathEnd & get) {
-              authenticationProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
+              authenticationProvider.authorizeDb(CommandRequestDatabase(db), header, writePermission = false) {
                 onComplete(readCoordinator ? GetNamespaces(db)) {
                   case Success(NamespacesGot(_, namespaces)) =>
                     complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
@@ -143,7 +143,9 @@ trait CommandApi {
           pathPrefix(Segment) { namespace =>
             pathEnd {
               delete {
-                authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
+                authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace),
+                                                          header,
+                                                          writePermission = true) {
                   onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
                     case Success(NamespaceDeleted(_, _)) => complete("Ok")
                     case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
@@ -185,7 +187,9 @@ trait CommandApi {
             path("metrics") {
               pathEnd {
                 get {
-                  authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
+                  authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace),
+                                                            header,
+                                                            writePermission = false) {
                     onComplete(readCoordinator ? GetMetrics(db, namespace)) {
                       case Success(MetricsGot(_, _, metrics)) =>
                         complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
@@ -229,9 +233,11 @@ trait CommandApi {
           pathPrefix(Segment) { namespace =>
             pathPrefix(Segment) { metric =>
               (pathEnd & get) {
-                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
+                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric),
+                                                       header,
+                                                       writePermission = false) {
                   onComplete(readCoordinator ? GetSchema(db, namespace, metric)) {
-                    case Success(SchemaGot(_, _, _, Some(schema))) =>
+                    case Success(SchemaGot(_, _, _, Some(schema), _, _)) =>
                       complete(
                         HttpEntity(
                           ContentTypes.`application/json`,
@@ -244,7 +250,7 @@ trait CommandApi {
                           )
                         )
                       )
-                    case Success(SchemaGot(_, _, _, None)) =>
+                    case Success(SchemaGot(_, _, _, None, _, _)) =>
                       complete(HttpResponse(NotFound))
                     case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                     case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
@@ -284,7 +290,9 @@ trait CommandApi {
           pathPrefix(Segment) { namespace =>
             pathPrefix(Segment) { metric =>
               delete {
-                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
+                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric),
+                                                       header,
+                                                       writePermission = true) {
                   onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
                     case Success(MetricDropped(_, _, _)) => complete("Ok")
                     case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))

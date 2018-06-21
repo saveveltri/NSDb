@@ -141,7 +141,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       log.debug("Received command DescribeMetric for metric {}", request.metric)
       (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
         .map {
-          case SchemaGot(db, namespace, metric, schema) =>
+          case SchemaGot(db, namespace, metric, schema, _, _) =>
             val fields = schema
               .map(
                 _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))

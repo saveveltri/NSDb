@@ -92,9 +92,9 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
 
   override def receive: Receive = {
 
-    case GetSchema(_, _, metric) =>
+    case GetSchema(_, _, metric, requestId, replyTo) =>
       val schema = getCachedSchema(metric)
-      sender ! SchemaGot(db, namespace, metric, schema)
+      sender ! SchemaGot(db, namespace, metric, schema, requestId, replyTo)
 
     case UpdateSchemaFromRecord(_, _, metric, record) =>
       (Schema(metric, record), getCachedSchema(metric)) match {
