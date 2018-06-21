@@ -108,29 +108,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, metricsSchemaActor: ActorRe
           actor ! ExecuteSelectStatement(reqStatus.statement, schema, requestId, replyTo))
       }
 
-//      val statement = processingRequests(requestId).statement
-//      Future
-//        .sequence(metricsDataActors.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
-//        .map { seq =>
-//          val errs = seq.collect {
-//            case e: SelectStatementFailed => e.reason
-//          }
-//          if (errs.isEmpty) {
-//            val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
-//            SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results.flatMap(_.values))
-//          } else {
-//            SelectStatementFailed(errs.mkString(","))
-//          }
-//        }
-//        .recoverWith {
-//          case t => Future(SelectStatementFailed(t.getMessage))
-//        }
-//        .pipeToWithEffect(replyTo) { _ =>
-//          processingRequests -= requestId
-//          if (perfLogger.isDebugEnabled)
-//            perfLogger.debug("statement {} executed at  {}", requestId, System.currentTimeMillis())
-//        }
-
     case SchemaGot(_, _, metric, None, requestId, replyTo) =>
       processingRequests -= requestId
       replyTo ! SelectStatementFailed(s"Metric $metric does not exist ", MetricNotFound(metric))
