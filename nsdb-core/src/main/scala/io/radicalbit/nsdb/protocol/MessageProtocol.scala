@@ -44,7 +44,7 @@ object MessageProtocol {
         extends SubscribeBySqlPurpose
     case class SubscribeBySqlExistingActorPurpose(queryString: String, quid: String) extends SubscribeBySqlPurpose
     case class SubscribeByQuidPurpose(quid: String, actor: ActorRef)                 extends SelectStatementPurpose
-    case object PublishPurpose                                                       extends SelectStatementPurpose
+    case class PublishPurpose(quid: String)                                          extends SelectStatementPurpose
     case object GenericPurpose                                                       extends SelectStatementPurpose
 
   }

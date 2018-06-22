@@ -21,19 +21,13 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.dispatch.ControlMessage
-import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{AllFields, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.index.TemporaryIndex
-import io.radicalbit.nsdb.protocol.MessageProtocol.Auxiliars.{
-  SubscribeByQuidPurpose,
-  SubscribeBySqlExistingActorPurpose,
-  SubscribeBySqlNewActorPurpose,
-  SubscribeBySqlPurpose
-}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Auxiliars._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -105,12 +99,7 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
       }
       .foreach {
         case (id, nsdbQuery) =>
-          val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-            .map {
-              case e: SelectStatementExecuted => RecordsPublished(id, e.metric, e.values)
-              case _: SelectStatementFailed   => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
-            }
-          subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
+          readCoordinator ! ExecuteStatement(nsdbQuery.query, PublishPurpose(id))
       }
   }
 
@@ -134,6 +123,8 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
       val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(quid, Set.empty)
       subscribedActorsByQueryId += (quid -> (previousRegisteredActors + actor))
       replyTo ! SubscribedByQuid(quid, values)
+    case SelectStatementExecuted(_, _, metric, values, PublishPurpose(quid), _, _) =>
+      subscribedActorsByQueryId.getOrElse(quid, Set.empty).foreach(_ ! RecordsPublished(quid, metric, values))
     case SelectStatementFailed(reason, _, purpose, _, replyTo) =>
       purpose match {
         case e: SubscribeBySqlPurpose =>
