@@ -28,7 +28,12 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{AllFields, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.index.TemporaryIndex
-import io.radicalbit.nsdb.protocol.MessageProtocol.Auxiliars.SubscribeBySqlNewActorPurpose
+import io.radicalbit.nsdb.protocol.MessageProtocol.Auxiliars.{
+  SubscribeByQuidPurpose,
+  SubscribeBySqlExistingActorPurpose,
+  SubscribeBySqlNewActorPurpose,
+  SubscribeBySqlPurpose
+}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -110,45 +115,53 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
   }
 
   override def receive: Receive = {
+    case SelectStatementExecuted(_,
+                                 _,
+                                 _,
+                                 values,
+                                 SubscribeBySqlNewActorPurpose(queryString, query, actor),
+                                 _,
+                                 replyTo) =>
+      val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
+        UUID.randomUUID().toString
+      val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(id, Set.empty)
+      subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
+      queries += (id                   -> NsdbQuery(id, query))
+      replyTo ! SubscribedByQueryString(queryString, id, values)
+    case SelectStatementExecuted(_, _, _, values, SubscribeBySqlExistingActorPurpose(queryString, id), _, replyTo) =>
+      replyTo ! SubscribedByQueryString(queryString, id, values)
+    case SelectStatementExecuted(_, _, _, values, SubscribeByQuidPurpose(quid, actor), _, replyTo) =>
+      val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(quid, Set.empty)
+      subscribedActorsByQueryId += (quid -> (previousRegisteredActors + actor))
+      replyTo ! SubscribedByQuid(quid, values)
+    case SelectStatementFailed(reason, _, purpose, _, replyTo) =>
+      purpose match {
+        case e: SubscribeBySqlPurpose =>
+          replyTo ! SubscriptionByQueryStringFailed(e.queryString, reason)
+        case e: SubscribeByQuidPurpose =>
+          replyTo ! SubscriptionByQuidFailed(e.quid, reason)
+        case _ => //do nothing
+      }
+
     case SubscribeBySqlStatement(actor, queryString, query) =>
-      subscribedActorsByQueryId
-        .find { case (_, v) => v == actor }
-        .fold {
+      val queryIdOpt = queries.find { case (_, nsdbQuery) => nsdbQuery.query == query }
+      queryIdOpt match {
+        case Some((id, _)) if subscribedActorsByQueryId.get(id).flatMap(_.find(_ == actor)).isDefined =>
+          log.debug(s"subscribing existing actor to query $queryString")
+          readCoordinator ! ExecuteStatement(query, SubscribeBySqlExistingActorPurpose(queryString, id), Some(sender))
+
+        case _ =>
           log.debug(s"subscribing a new actor to query $queryString")
 
-          (readCoordinator ? ExecuteStatement(query, SubscribeBySqlNewActorPurpose, Some(sender)))
-            .map {
-              case e: SelectStatementExecuted =>
-                val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
-                  UUID.randomUUID().toString
-                val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(id, Set.empty)
-                subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
-                queries += (id                   -> NsdbQuery(id, query))
-                SubscribedByQueryString(queryString, id, e.values)
-              case SelectStatementFailed(reason, _, _, _, _) => SubscriptionByQueryStringFailed(queryString, reason)
-            }
-            .pipeTo(sender())
-        } {
-          case (id, _) =>
-            log.debug(s"subscribing existing actor to query $queryString")
-            (readCoordinator ? ExecuteStatement(query))
-              .mapTo[SelectStatementExecuted]
-              .map(e => SubscribedByQueryString(queryString, id, e.values))
-              .pipeTo(sender())
-        }
+          readCoordinator ! ExecuteStatement(query,
+                                             SubscribeBySqlNewActorPurpose(queryString, query, actor),
+                                             Some(sender))
+      }
     case SubscribeByQueryId(actor, quid) =>
       queries.get(quid) match {
         case Some(q) =>
           log.debug(s"found query $q for id $quid")
-          (readCoordinator ? ExecuteStatement(q.query))
-            .map {
-              case e: SelectStatementExecuted =>
-                val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(quid, Set.empty)
-                subscribedActorsByQueryId += (quid -> (previousRegisteredActors + actor))
-                SubscribedByQuid(quid, e.values)
-              case SelectStatementFailed(reason, _, _, _, _) => SubscriptionByQuidFailed(quid, reason)
-            }
-            .pipeTo(sender())
+          readCoordinator ! ExecuteStatement(q.query, SubscribeByQuidPurpose(quid, actor), Some(sender))
         case None => sender ! SubscriptionByQuidFailed(quid, s"quid $quid not found")
       }
     case PublishRecord(db, namespace, metric, record, schema) =>

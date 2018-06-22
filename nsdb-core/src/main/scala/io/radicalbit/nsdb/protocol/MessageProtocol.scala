@@ -35,11 +35,17 @@ object MessageProtocol {
   object Auxiliars {
 
     sealed trait SelectStatementPurpose
-    case object SubscribeBySqlNewActorPurpose      extends SelectStatementPurpose
-    case object SubscribeBySqlExistingActorPurpose extends SelectStatementPurpose
-    case object SubscribeByIdPurpose               extends SelectStatementPurpose
-    case object PublishPurpose                     extends SelectStatementPurpose
-    case object GenericPurpose                     extends SelectStatementPurpose
+
+    sealed trait SubscribeBySqlPurpose extends SelectStatementPurpose {
+      val queryString: String
+    }
+
+    case class SubscribeBySqlNewActorPurpose(queryString: String, query: SelectSQLStatement, actor: ActorRef)
+        extends SubscribeBySqlPurpose
+    case class SubscribeBySqlExistingActorPurpose(queryString: String, quid: String) extends SubscribeBySqlPurpose
+    case class SubscribeByQuidPurpose(quid: String, actor: ActorRef)                 extends SelectStatementPurpose
+    case object PublishPurpose                                                       extends SelectStatementPurpose
+    case object GenericPurpose                                                       extends SelectStatementPurpose
 
   }
 
