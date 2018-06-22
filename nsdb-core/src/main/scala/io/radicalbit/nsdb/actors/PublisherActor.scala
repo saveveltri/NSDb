@@ -28,6 +28,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{AllFields, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.index.TemporaryIndex
+import io.radicalbit.nsdb.protocol.MessageProtocol.Auxiliars.SubscribeBySqlNewActorPurpose
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -114,12 +115,12 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
         .find { case (_, v) => v == actor }
         .fold {
           log.debug(s"subscribing a new actor to query $queryString")
-          val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
-            UUID.randomUUID().toString
 
-          (readCoordinator ? ExecuteStatement(query))
+          (readCoordinator ? ExecuteStatement(query, SubscribeBySqlNewActorPurpose, Some(sender)))
             .map {
               case e: SelectStatementExecuted =>
+                val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
+                  UUID.randomUUID().toString
                 val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(id, Set.empty)
                 subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
                 queries += (id                   -> NsdbQuery(id, query))

@@ -35,10 +35,11 @@ object MessageProtocol {
   object Auxiliars {
 
     sealed trait SelectStatementPurpose
-    case object SubscribeBySqlPurpose extends SelectStatementPurpose
-    case object SubscribeByIdPurpose  extends SelectStatementPurpose
-    case object PublishPurpose        extends SelectStatementPurpose
-    case object GenericPurpose        extends SelectStatementPurpose
+    case object SubscribeBySqlNewActorPurpose      extends SelectStatementPurpose
+    case object SubscribeBySqlExistingActorPurpose extends SelectStatementPurpose
+    case object SubscribeByIdPurpose               extends SelectStatementPurpose
+    case object PublishPurpose                     extends SelectStatementPurpose
+    case object GenericPurpose                     extends SelectStatementPurpose
 
   }
 
