@@ -33,7 +33,7 @@ object RollingCommitLogFileChecker {
   def props(db: String, namespace: String, metric: String) =
     Props(new RollingCommitLogFileChecker(db, namespace, metric))
 
-  case class CheckFiles(actualFile: File)
+  case class CheckFiles(currentFile: Option[File])
 }
 
 /**
@@ -60,14 +60,13 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
   }
 
   override def receive: Receive = {
-    case CheckFiles(actualFile) =>
-      log.debug(s"Received commitlog check for actual file : ${actualFile.getName}")
+    case CheckFiles(currentFile) =>
+      log.debug(s"Received commitlog check for actual file : ${ currentFile.map(_.getName)}")
       val existingOldFileNames: List[String] = Option(Paths.get(directory).toFile.list())
         .map(_.toSet)
         .getOrElse(Set.empty)
         .filter(name =>
-          name.contains(s"$db$fileNameSeparator$namespace$fileNameSeparator$metric") && isOlder(name,
-                                                                                                actualFile.getName))
+          name.contains(s"$db$fileNameSeparator$namespace$fileNameSeparator$metric") && currentFile.forall(f => isOlder(name, f.getName)))
         .toList
         .sortBy(_.split(fileNameSeparator).toList.last.toInt)
 
