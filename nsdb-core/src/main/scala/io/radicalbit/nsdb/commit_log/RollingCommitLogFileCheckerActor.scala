@@ -21,7 +21,7 @@ import java.nio.file.Paths
 
 import akka.actor.Props
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
+import io.radicalbit.nsdb.commit_log.RollingCommitLogFileCheckerActor.CheckFiles
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.fileNameSeparator
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.Config.{CommitLogDirectoryConf, CommitLogSerializerConf, getString}
@@ -29,9 +29,9 @@ import io.radicalbit.nsdb.util.Config.{CommitLogDirectoryConf, CommitLogSerializ
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-object RollingCommitLogFileChecker {
+object RollingCommitLogFileCheckerActor {
   def props(db: String, namespace: String, metric: String) =
-    Props(new RollingCommitLogFileChecker(db, namespace, metric))
+    Props(new RollingCommitLogFileCheckerActor(db, namespace, metric))
 
   case class CheckFiles(currentFile: Option[File])
 }
@@ -43,7 +43,7 @@ object RollingCommitLogFileChecker {
   * @param namespace namespace name
   * @param metric metric name
   */
-class RollingCommitLogFileChecker(db: String, namespace: String, metric: String) extends ActorPathLogging {
+class RollingCommitLogFileCheckerActor(db: String, namespace: String, metric: String) extends ActorPathLogging {
 
   implicit val config: Config = context.system.settings.config
 
@@ -61,7 +61,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
 
   override def receive: Receive = {
     case CheckFiles(currentFile) =>
-      log.debug(s"Received commitlog check for actual file : ${ currentFile.map(_.getName)}")
+      log.debug(s"Received commit log check for actual file : ${ currentFile.map(_.getName)}")
       val existingOldFileNames: List[String] = Option(Paths.get(directory).toFile.list())
         .map(_.toSet)
         .getOrElse(Set.empty)
@@ -87,7 +87,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
         closedEntries.foreach {
           closedEntry =>
             pendingOutdatedEntries.foreach {
-              case (file, (pending, closed)) =>
+              case (file, (pending, _)) =>
                 if (pending.toList.contains(closedEntry)) {
                   log.debug(s"removing entry: $closedEntry in file ${file.getName} processing file: $fileName")
                   pendingOutdatedEntries(file)._1 -= closedEntry

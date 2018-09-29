@@ -18,17 +18,13 @@ package io.radicalbit.nsdb.commit_log
 
 import java.io._
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 
 import akka.actor.Props
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
+import io.radicalbit.nsdb.commit_log.RollingCommitLogFileCheckerActor.CheckFiles
 import io.radicalbit.nsdb.util.Config._
 
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object RollingCommitLogFileWriter {
@@ -92,7 +88,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   override def preStart(): Unit = {
 
-    val checker = context.actorOf(RollingCommitLogFileChecker.props(db, namespace, metric), childName)
+    val checker = context.actorOf(RollingCommitLogFileCheckerActor.props(db, namespace, metric), childName)
 
     new File(directory).mkdirs()
 
@@ -111,7 +107,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     file = new File(s"$directory/$newFileName")
     fileOS = newOutputStream(file)
 
-    checker ! CheckFiles(file)
+    checker ! CheckFiles(Some(file))
 
   }
 
@@ -144,7 +140,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
       context.child(childName).foreach {
         log.debug(s"Sending commitlog check for actual file : ${f.getName}")
-        _ ! CheckFiles(f)
+        _ ! CheckFiles(Some(f))
       }
 
       Some(f, newOutputStream(f))
@@ -166,7 +162,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
       file = f
       context.child(childName).foreach {
         log.debug(s"Sending commitlog check for actual file : ${f.getName}")
-        _ ! CheckFiles(f)
+        _ ! CheckFiles(Some(f))
       }
       fileOS.close()
       fileOS = newOutputStream(f)
