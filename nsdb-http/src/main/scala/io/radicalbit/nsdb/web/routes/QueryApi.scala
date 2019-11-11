@@ -16,15 +16,18 @@
 
 package io.radicalbit.nsdb.web.routes
 
+import akka.NotUsed
 import javax.ws.rs.Path
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
+import akka.http.scaladsl.common.{EntityStreamingSupport, JsonEntityStreamingSupport}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError, NotFound}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
 import akka.pattern.ask
+import akka.stream.scaladsl.Source
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
@@ -164,7 +167,10 @@ trait QueryApi {
                 case Some(statement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
-                      complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
+                      implicit val jsonStreamingSupport: JsonEntityStreamingSupport = EntityStreamingSupport.json()
+//                      complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
+                      val stream: Source[Bit, NotUsed] = Source(values.toList)
+                      complete(stream)
                     case Success(SelectStatementFailed(_, reason, MetricNotFound(metric))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>
