@@ -113,9 +113,7 @@ abstract class AbstractReadCoordinatorSpec
     system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])), "metadata-coordinator")
   val metricsDataActor =
     system.actorOf(MetricsDataActor.props(basePath, "node1", Actor.noSender))
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
-                                                                  schemaCoordinator,
-                                                                  system.actorOf(Props.empty))
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator, schemaCoordinator)
 
   override def beforeAll = {
     import scala.concurrent.duration._

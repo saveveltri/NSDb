@@ -23,7 +23,6 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
-import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
@@ -49,8 +48,8 @@ import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
 
-  def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
-    Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, mediator))
+  def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef): Props =
+    Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator))
 
   case class AckPendingMetric(db: String, namespace: String, metric: String)
 }
@@ -60,7 +59,7 @@ object WriteCoordinator {
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
   * @param schemaCoordinator   [[SchemaCoordinator]] the namespace schema actor.
   */
-class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
+class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef)
     extends ActorPathLogging
     with DirectorySupport
     with NsdbPerfLogger
@@ -375,22 +374,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             }
         }
       }
-  }
-
-  override def preStart(): Unit = {
-    mediator ! Subscribe(COORDINATORS_TOPIC, self)
-
-    val interval = FiniteDuration(
-      context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
-
-    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetPublishers)
-      log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
-      log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
-    }
   }
 
   override def receive: Receive = {

@@ -75,9 +75,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
   lazy val fakeMetadataCoordinator =
     system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])))
-  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
-                                                                         schemaCoordinator,
-                                                                         system.actorOf(Props.empty))
+  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator, schemaCoordinator)
   lazy val metricsDataActor =
     TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "localhost", writeCoordinatorActor))
 

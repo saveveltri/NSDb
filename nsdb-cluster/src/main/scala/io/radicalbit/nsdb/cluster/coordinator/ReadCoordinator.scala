@@ -50,7 +50,7 @@ import scala.concurrent.duration.FiniteDuration
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
   * @param schemaCoordinator [[SchemaCoordinator]] the metrics schema actor.
   */
-class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
+class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger {
 
@@ -62,22 +62,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
   private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-  override def preStart(): Unit = {
-
-    mediator ! Subscribe(COORDINATORS_TOPIC, self)
-
-    val interval = FiniteDuration(
-      context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
-
-    /**
-      * scheduler that updates aggregated queries subscribers
-      */
-    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
-      log.debug("readcoordinator data actor : {}", metricsDataActors.size)
-    }
-  }
+//  override def preStart(): Unit = {
+//
+//    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+//
+//  }
 
   private def filterLocationsThroughTime(expression: Option[Expression], locations: Seq[Location]): Seq[Location] = {
     val intervals = TimeRangeManager.extractTimeRange(expression)
@@ -410,7 +399,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
 object ReadCoordinator {
 
-  def props(metadataCoordinator: ActorRef, schemaActor: ActorRef, mediator: ActorRef): Props =
-    Props(new ReadCoordinator(metadataCoordinator, schemaActor, mediator: ActorRef))
+  def props(metadataCoordinator: ActorRef, schemaActor: ActorRef): Props =
+    Props(new ReadCoordinator(metadataCoordinator, schemaActor))
 
 }

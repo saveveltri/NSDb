@@ -39,8 +39,6 @@ package object cluster {
   }
 
   final object PubSubTopics {
-    final val COORDINATORS_TOPIC   = "coordinators"
-    final val NODE_GUARDIANS_TOPIC = "node-guardians"
-    final val NSDB_METRICS_TOPIC   = "nsdb-metrics"
+    final val NSDB_METRICS_TOPIC = "nsdb-metrics"
   }
 }

@@ -70,7 +70,7 @@ class MetadataCoordinatorSpec
   val clusterListener       = system.actorOf(Props[ClusterListener])
 
   val metadataCoordinator =
-    system.actorOf(MetadataCoordinator.props(clusterListener, metadataCache, schemaCache, probe.ref))
+    system.actorOf(MetadataCoordinator.props(clusterListener, metadataCache, schemaCache))
 
   val db        = "testDb"
   val namespace = "testNamespace"

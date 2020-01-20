@@ -100,8 +100,6 @@ class ClusterListener() extends Actor with ActorLogging {
       (nodeActorsGuardian ? GetNodeChildActors)
         .map {
           case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
-            mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
-
             val locationsToAdd: Seq[LocationWithCoordinates] =
               FileUtils.getLocationsFromFilesystem(indexPath, nodeName)
 

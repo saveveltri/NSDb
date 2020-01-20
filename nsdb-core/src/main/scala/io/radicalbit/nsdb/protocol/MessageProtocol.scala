@@ -96,9 +96,6 @@ object MessageProtocol {
 
     case object GetConnectedDataNodes extends NSDbSerializable
 
-    case object GetMetricsDataActors     extends NSDbSerializable
-    case object GetCommitLogCoordinators extends NSDbSerializable
-    case object GetPublishers            extends NSDbSerializable
   }
 
   /**

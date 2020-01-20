@@ -21,16 +21,13 @@ import java.util.concurrent.TimeoutException
 import akka.actor.SupervisorStrategy.{Resume, Stop}
 import akka.actor._
 import akka.cluster.Cluster
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.remote.RemoteScope
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeName
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
@@ -52,8 +49,6 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
 
   private val selfMember = Cluster(context.system).selfMember
 
-  private val mediator = DistributedPubSub(context.system).mediator
-
   private val nodeName = createNodeName(selfMember)
 
   private val config = context.system.settings.config
@@ -73,7 +68,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   private val metadataCoordinator =
     context.actorOf(
       MetadataCoordinator
-        .props(clusterListener, metadataCache, schemaCache, mediator)
+        .props(clusterListener, metadataCache, schemaCache)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       name = s"metadata-coordinator_$nodeName"
@@ -82,7 +77,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   private val readCoordinator =
     context.actorOf(
       ReadCoordinator
-        .props(metadataCoordinator, schemaCoordinator, mediator)
+        .props(metadataCoordinator, schemaCoordinator)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"read-coordinator_$nodeName"
@@ -98,7 +93,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   private val writeCoordinator =
     context.actorOf(
       WriteCoordinator
-        .props(metadataCoordinator, schemaCoordinator, mediator)
+        .props(metadataCoordinator, schemaCoordinator)
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"write-coordinator_$nodeName"
     )
@@ -122,15 +117,15 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   def receive: Receive = {
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
-    case GetMetricsDataActors =>
-      log.debug("gossiping metric data actors from node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
-    case GetCommitLogCoordinators =>
-      log.debug("gossiping commit logs for node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
-    case GetPublishers =>
-      log.debug("gossiping publishers for node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeName))
+//    case GetMetricsDataActors =>
+//      log.debug("gossiping metric data actors from node {}", nodeName)
+//      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
+//    case GetCommitLogCoordinators =>
+//      log.debug("gossiping commit logs for node {}", nodeName)
+//      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
+//    case GetPublishers =>
+//      log.debug("gossiping publishers for node {}", nodeName)
+//      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeName))
   }
 }
 

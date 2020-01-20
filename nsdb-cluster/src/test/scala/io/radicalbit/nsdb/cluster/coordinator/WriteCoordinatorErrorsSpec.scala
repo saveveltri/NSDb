@@ -104,9 +104,7 @@ class WriteCoordinatorErrorsSpec
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
   lazy val mockedMetadataCoordinator = system.actorOf(Props[MockedMetadataCoordinator])
-  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(mockedMetadataCoordinator,
-                                                                         schemaCoordinator,
-                                                                         system.actorOf(Props.empty))
+  lazy val writeCoordinatorActor     = system actorOf WriteCoordinator.props(mockedMetadataCoordinator, schemaCoordinator)
 
   lazy val node1MetricsDataActor =
     TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(successAccumulationProbe.ref))

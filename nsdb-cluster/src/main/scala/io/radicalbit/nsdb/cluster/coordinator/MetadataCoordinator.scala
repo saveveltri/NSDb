@@ -26,7 +26,6 @@ import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
@@ -34,6 +33,11 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache.SchemaKey
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import akka.cluster.{Cluster, MemberStatus}
+import akka.pattern._
+import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
@@ -48,6 +52,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
+import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
+import org.apache.lucene.store.Directory
+import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -59,9 +66,14 @@ import scala.util.Random
   * @param clusterListener actor that collects cluster metrics.
   * @param metadataCache cluster aware metrics location cache.
   */
-class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef)
+class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef)
     extends ActorPathLogging
     with DirectorySupport {
+
+  import MetadataCoordinator._
+  import MetadataCoordinator.commands._
+  import MetadataCoordinator.events._
+
   private val cluster = Cluster(context.system)
 
   private val config = context.system.settings.config
@@ -128,17 +140,17 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
       }
 
   override def preStart(): Unit = {
-    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+//    mediator ! Subscribe(COORDINATORS_TOPIC, self)
 
-    val interval =
-      FiniteDuration(config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS), TimeUnit.SECONDS)
+//    val interval =
+//      FiniteDuration(config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
-      log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
-      log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
-    }
+//    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
+//      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+//      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
+//      log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
+//      log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
+//    }
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), retentionCheckInterval) {
       metadataCache ! GetAllMetricInfoWithRetention
@@ -609,6 +621,6 @@ object MetadataCoordinator {
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
   }
 
-  def props(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef): Props =
-    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCache, mediator))
+  def props(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef): Props =
+    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCache))
 }

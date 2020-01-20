@@ -98,16 +98,13 @@ class RetentionSpec
   val metadataCoordinator =
     system.actorOf(
       MetadataCoordinator
-        .props(system.actorOf(Props[ClusterListener]), localMetadataCache, schemaCache, system.actorOf(Props.empty))
+        .props(system.actorOf(Props[ClusterListener]), localMetadataCache, schemaCache)
         .withDispatcher("akka.actor.control-aware-dispatcher"),
       "metadata-coordinator"
     )
   val writeCoordinator =
-    system.actorOf(WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)),
-                   "write-coordinator")
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
-                                                                  schemaCoordinator,
-                                                                  system.actorOf(Props.empty))
+    system.actorOf(WriteCoordinator.props(metadataCoordinator, schemaCoordinator), "write-coordinator")
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator, schemaCoordinator)
 
   implicit val timeout = Timeout(5.second)
 

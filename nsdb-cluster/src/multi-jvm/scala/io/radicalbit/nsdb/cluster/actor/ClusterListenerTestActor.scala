@@ -6,7 +6,6 @@ import akka.cluster.ClusterEvent.{InitialStateAsEvents, MemberEvent, MemberUp, U
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.remote.RemoteScope
-import io.radicalbit.nsdb.cluster.PubSubTopics.NODE_GUARDIANS_TOPIC
 import io.radicalbit.nsdb.cluster.createNodeName
 
 class ClusterListenerTestActor()  extends Actor with ActorLogging {
@@ -27,7 +26,6 @@ class ClusterListenerTestActor()  extends Actor with ActorLogging {
         context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
           name = s"guardian_$nodeName")
 
-      mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
   }
 
 }
