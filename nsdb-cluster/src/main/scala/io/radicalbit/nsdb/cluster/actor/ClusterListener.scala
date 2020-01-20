@@ -39,8 +39,11 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
+  CommitLogCoordinatorSubscribed,
   CommitLogCoordinatorUnSubscribed,
+  MetricsDataActorSubscribed,
   MetricsDataActorUnSubscribed,
+  PublisherSubscribed,
   PublisherUnSubscribed
 }
 
@@ -89,7 +92,7 @@ class ClusterListener() extends Actor with ActorLogging {
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
-      log.info("Member is Up: {}", member.address)
+      log.info("Self Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)
 
@@ -97,45 +100,135 @@ class ClusterListener() extends Actor with ActorLogging {
         context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
                                name = s"guardian_$nodeName")
 
-      (nodeActorsGuardian ? GetNodeChildActors)
-        .map {
-          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
-            val locationsToAdd: Seq[LocationWithCoordinates] =
-              FileUtils.getLocationsFromFilesystem(indexPath, nodeName)
+      val subscribedNodeChildActors = for {
+        msg @ NodeChildActorsGot(metadataCoordinator,
+                                 writeCoordinator,
+                                 readCoordinator,
+                                 commitLogCoordinator,
+                                 metricsDataActor,
+                                 publisherActor) <- (nodeActorsGuardian ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+        _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+          .mapTo[MetricsDataActorSubscribed]
+        _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+          .mapTo[CommitLogCoordinatorSubscribed]
+        _ <- (writeCoordinator ? SubscribePublisher(publisherActor, createNodeName(member))).mapTo[PublisherSubscribed]
+        _ <- (writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+          .mapTo[MetricsDataActorSubscribed]
+        _ <- (metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+          .mapTo[MetricsDataActorSubscribed]
+        _ <- (metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+          .mapTo[CommitLogCoordinatorSubscribed]
+      } yield msg
 
-            val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
-              case LocationWithCoordinates(database, namespace, _) => (database, namespace)
+      val chain = for {
+        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _, _, publisherActor) <- subscribedNodeChildActors
+        addLocationsRawResponse <- {
+          val locationsToAdd: Seq[LocationWithCoordinates] =
+            FileUtils.getLocationsFromFilesystem(indexPath, nodeName)
+
+          val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
+            case LocationWithCoordinates(database, namespace, _) => (database, namespace)
+          }
+
+          Future
+            .sequence {
+              locationsGroupedBy.map {
+                case ((db, namespace), locations) =>
+                  metadataCoordinator ? AddLocations(db, namespace, locations.map {
+                    case LocationWithCoordinates(_, _, location) => location
+                  })
+              }
             }
-
-            Future
-              .sequence {
-                locationsGroupedBy.map {
-                  case ((db, namespace), locations) =>
-                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
-                      case LocationWithCoordinates(_, _, location) => location
-                    })
-                }
-              }
-              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-              .onComplete {
-                case Success((_, failures)) if failures.isEmpty =>
-                  new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
-                    context.system)
-                case Success((_, failures)) =>
-                  log.error(s" failures $failures")
-                  cluster.leave(member.address)
-                case Failure(ex) =>
-                  log.error(s" failure", ex)
-                  cluster.leave(member.address)
-              }
-          case unknownResponse =>
-            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
+        res <- Future(
+          ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed](addLocationsRawResponse))
+
+        endpoint <- Future(
+          new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system))
+        if res._2.isEmpty
+
+      } yield endpoint
+
+//      chain.onComplete {
+//        case Success((_, failures)) if failures.isEmpty =>
+//          new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
+//            context.system)
+//        case Success((_, failures)) =>
+//          log.error(s" failures $failures")
+//          cluster.leave(member.address)
+//        case Failure(ex) =>
+//          log.error(s" failure", ex)
+//          cluster.leave(member.address)
+//      }
+
+//        (nodeActorsGuardian ? GetNodeChildActors)
+//        .map {
+//          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
+//            val locationsToAdd: Seq[LocationWithCoordinates] =
+//              FileUtils.getLocationsFromFilesystem(indexPath, nodeName)
+//
+//            val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
+//              case LocationWithCoordinates(database, namespace, _) => (database, namespace)
+//            }
+//
+//            Future
+//              .sequence {
+//                locationsGroupedBy.map {
+//                  case ((db, namespace), locations) =>
+//                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
+//                      case LocationWithCoordinates(_, _, location) => location
+//                    })
+//                }
+//              }
+//              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
+//              .onComplete {
+//                case Success((_, failures)) if failures.isEmpty =>
+//                  new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
+//                    context.system)
+//                case Success((_, failures)) =>
+//                  log.error(s" failures $failures")
+//                  cluster.leave(member.address)
+//                case Failure(ex) =>
+//                  log.error(s" failure", ex)
+//                  cluster.leave(member.address)
+//              }
+//          case unknownResponse =>
+//            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
+//        }
+    case MemberUp(member) =>
+      log.info("Other Member is Up: {}", member.address)
+
+      val nodeName = createNodeName(member)
+
+      val nodeActorsGuardian =
+        context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
+                               name = s"guardian_$nodeName")
+
+      for {
+        msg @ NodeChildActorsGot(metadataCoordinator,
+                                 writeCoordinator,
+                                 readCoordinator,
+                                 commitLogCoordinator,
+                                 metricsDataActor,
+                                 publisherActor) <- (nodeActorsGuardian ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+        _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+          .mapTo[MetricsDataActorSubscribed]
+        _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+          .mapTo[CommitLogCoordinatorSubscribed]
+        _ <- (writeCoordinator ? SubscribePublisher(publisherActor, createNodeName(member))).mapTo[PublisherSubscribed]
+        _ <- (writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+          .mapTo[MetricsDataActorSubscribed]
+        _ <- (metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+          .mapTo[MetricsDataActorSubscribed]
+        _ <- (metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+          .mapTo[CommitLogCoordinatorSubscribed]
+      } yield msg
+
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
 
       (for {
-        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
+        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _, _, _) <- (context.actorSelection(
           s"/user/guardian_$selfNodeName") ? GetNodeChildActors).mapTo[NodeChildActorsGot]
         _ <- (readCoordinator ? UnsubscribeMetricsDataActor(createNodeName(member))).mapTo[MetricsDataActorUnSubscribed]
         _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(createNodeName(member)))

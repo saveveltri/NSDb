@@ -84,6 +84,8 @@ object MessageProtocol {
     case class NodeChildActorsGot(metadataCoordinator: ActorRef,
                                   writeCoordinator: ActorRef,
                                   readCoordinator: ActorRef,
+                                  commitLogCoordinator: ActorRef,
+                                  metricsDataActor: ActorRef,
                                   publisher: ActorRef)
         extends NSDbSerializable
 
