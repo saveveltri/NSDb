@@ -38,14 +38,7 @@ import io.radicalbit.nsdb.model.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
-  CommitLogCoordinatorSubscribed,
-  CommitLogCoordinatorUnSubscribed,
-  MetricsDataActorSubscribed,
-  MetricsDataActorUnSubscribed,
-  PublisherSubscribed,
-  PublisherUnSubscribed
-}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
@@ -81,12 +74,17 @@ class ClusterListener() extends ActorPathLogging {
     */
   private val nsdbMetrics: mutable.Map[String, Set[NodeMetrics]] = mutable.Map.empty
 
+  private lazy val nodeActorsGuardian =
+    context.system.actorOf(
+      NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
+      name = s"guardian_$selfNodeName")
+
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
+    log.info("Created nodeActorsGuardian at path {} ", nodeActorsGuardian.path)
     clusterMetricSystem.subscribe(self)
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
-
   }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
@@ -96,10 +94,6 @@ class ClusterListener() extends ActorPathLogging {
       log.info("Self Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)
-
-      val nodeActorsGuardian =
-        context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
-                               name = s"guardian_$nodeName")
 
       val subscribedNodeChildActors = for {
         msg @ NodeChildActorsGot(metadataCoordinator,
@@ -150,67 +144,18 @@ class ClusterListener() extends ActorPathLogging {
 
       } yield endpoint
 
-//      chain.onComplete {
-//        case Success((_, failures)) if failures.isEmpty =>
-//          new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
-//            context.system)
-//        case Success((_, failures)) =>
-//          log.error(s" failures $failures")
-//          cluster.leave(member.address)
-//        case Failure(ex) =>
-//          log.error(s" failure", ex)
-//          cluster.leave(member.address)
-//      }
-
-//        (nodeActorsGuardian ? GetNodeChildActors)
-//        .map {
-//          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
-//            val locationsToAdd: Seq[LocationWithCoordinates] =
-//              FileUtils.getLocationsFromFilesystem(indexPath, nodeName)
-//
-//            val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
-//              case LocationWithCoordinates(database, namespace, _) => (database, namespace)
-//            }
-//
-//            Future
-//              .sequence {
-//                locationsGroupedBy.map {
-//                  case ((db, namespace), locations) =>
-//                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
-//                      case LocationWithCoordinates(_, _, location) => location
-//                    })
-//                }
-//              }
-//              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-//              .onComplete {
-//                case Success((_, failures)) if failures.isEmpty =>
-//                  new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
-//                    context.system)
-//                case Success((_, failures)) =>
-//                  log.error(s" failures $failures")
-//                  cluster.leave(member.address)
-//                case Failure(ex) =>
-//                  log.error(s" failure", ex)
-//                  cluster.leave(member.address)
-//              }
-//          case unknownResponse =>
-//            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
-//        }
     case MemberUp(member) =>
       log.info("Other Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)
 
-      val nodeActorGuardianRef = context.actorSelection(s"/user/guardian_$selfNodeName")
-
       (for {
-        msg @ NodeChildActorsGot(
-          metadataCoordinator,
-          writeCoordinator,
-          readCoordinator,
-          commitLogCoordinator,
-          metricsDataActor,
-          publisherActor) <- (nodeActorGuardianRef ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+        msg @ NodeChildActorsGot(metadataCoordinator,
+                                 writeCoordinator,
+                                 readCoordinator,
+                                 commitLogCoordinator,
+                                 metricsDataActor,
+                                 publisherActor) <- (nodeActorsGuardian ? GetNodeChildActors).mapTo[NodeChildActorsGot]
         _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
         _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))

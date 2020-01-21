@@ -55,17 +55,17 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
 
   private val indexBasePath = config.getString(StorageIndexPath)
 
-  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
-  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
+  private lazy val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
+  private lazy val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
 
-  private val schemaCoordinator = context.actorOf(
+  private lazy val schemaCoordinator = context.actorOf(
     SchemaCoordinator
       .props(schemaCache)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
     s"schema-coordinator_$nodeName"
   )
 
-  private val metadataCoordinator =
+  private lazy val metadataCoordinator =
     context.actorOf(
       MetadataCoordinator
         .props(clusterListener, metadataCache, schemaCache)
@@ -74,7 +74,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       name = s"metadata-coordinator_$nodeName"
     )
 
-  private val readCoordinator =
+  private lazy val readCoordinator =
     context.actorOf(
       ReadCoordinator
         .props(metadataCoordinator, schemaCoordinator)
@@ -82,7 +82,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"read-coordinator_$nodeName"
     )
-  private val publisherActor =
+  private lazy val publisherActor =
     context.actorOf(
       PublisherActor
         .props(readCoordinator)
@@ -90,7 +90,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"publisher-actor_$nodeName"
     )
-  private val writeCoordinator =
+  private lazy val writeCoordinator =
     context.actorOf(
       WriteCoordinator
         .props(metadataCoordinator, schemaCoordinator)
@@ -98,7 +98,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       s"write-coordinator_$nodeName"
     )
 
-  private val commitLogCoordinator =
+  private lazy val commitLogCoordinator =
     context.actorOf(
       Props[CommitLogCoordinator]
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
@@ -106,7 +106,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       s"commitlog-coordinator_$nodeName"
     )
 
-  private val metricsDataActor = context.actorOf(
+  private lazy val metricsDataActor = context.actorOf(
     MetricsDataActor
       .props(indexBasePath, nodeName, commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))

@@ -130,7 +130,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                                  location)).mapTo[CommitLogResponse]
       case None =>
         Future(
-          WriteToCommitLogFailed(db, namespace, ts, metric, s"Commit log not existing for requested node: $nodeName "))
+          WriteToCommitLogFailed(
+            db,
+            namespace,
+            ts,
+            metric,
+            s"Commit log for requested node: $nodeName does not exist in WriteCoordinator at path ${self.path}"))
     }
   }
 
