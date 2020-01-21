@@ -24,6 +24,7 @@ import akka.cluster.ddata.DistributedData
 import akka.cluster.singleton._
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
+import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
 
@@ -60,6 +61,10 @@ trait NSDbActors {
       name = "databaseActorGuardianProxy"
     )
 
-    system.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
+    system
+      .actorOf(
+        Props[ClusterListener].withDeploy(Deploy(scope = RemoteScope(Cluster(system).selfMember.address))),
+        name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
+      )
   }
 }

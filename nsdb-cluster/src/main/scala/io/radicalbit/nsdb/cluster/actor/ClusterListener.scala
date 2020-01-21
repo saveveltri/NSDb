@@ -46,6 +46,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   PublisherSubscribed,
   PublisherUnSubscribed
 }
+import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -55,7 +56,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
   */
-class ClusterListener() extends Actor with ActorLogging {
+class ClusterListener() extends ActorPathLogging {
 
   private lazy val cluster             = Cluster(context.system)
   private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
@@ -107,20 +108,20 @@ class ClusterListener() extends Actor with ActorLogging {
                                  commitLogCoordinator,
                                  metricsDataActor,
                                  publisherActor) <- (nodeActorsGuardian ? GetNodeChildActors).mapTo[NodeChildActorsGot]
-        _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+        _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
-        _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+        _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
           .mapTo[CommitLogCoordinatorSubscribed]
-        _ <- (writeCoordinator ? SubscribePublisher(publisherActor, createNodeName(member))).mapTo[PublisherSubscribed]
-        _ <- (writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+        _ <- (writeCoordinator ? SubscribePublisher(publisherActor, nodeName)).mapTo[PublisherSubscribed]
+        _ <- (writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
-        _ <- (metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+        _ <- (metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
-        _ <- (metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+        _ <- (metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
           .mapTo[CommitLogCoordinatorSubscribed]
       } yield msg
 
-      val chain = for {
+      for {
         NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _, _, publisherActor) <- subscribedNodeChildActors
         addLocationsRawResponse <- {
           val locationsToAdd: Seq[LocationWithCoordinates] =
@@ -200,47 +201,53 @@ class ClusterListener() extends Actor with ActorLogging {
 
       val nodeName = createNodeName(member)
 
-      val nodeActorsGuardian =
-        context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
-                               name = s"guardian_$nodeName")
+      val nodeActorGuardianRef = context.actorSelection(s"/user/guardian_$selfNodeName")
 
-      for {
-        msg @ NodeChildActorsGot(metadataCoordinator,
-                                 writeCoordinator,
-                                 readCoordinator,
-                                 commitLogCoordinator,
-                                 metricsDataActor,
-                                 publisherActor) <- (nodeActorsGuardian ? GetNodeChildActors).mapTo[NodeChildActorsGot]
-        _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+      (for {
+        msg @ NodeChildActorsGot(
+          metadataCoordinator,
+          writeCoordinator,
+          readCoordinator,
+          commitLogCoordinator,
+          metricsDataActor,
+          publisherActor) <- (nodeActorGuardianRef ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+        _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
-        _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+        _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
           .mapTo[CommitLogCoordinatorSubscribed]
-        _ <- (writeCoordinator ? SubscribePublisher(publisherActor, createNodeName(member))).mapTo[PublisherSubscribed]
-        _ <- (writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+        _ <- (writeCoordinator ? SubscribePublisher(publisherActor, nodeName)).mapTo[PublisherSubscribed]
+        _ <- (writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
-        _ <- (metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, createNodeName(member)))
+        _ <- (metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
-        _ <- (metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, createNodeName(member)))
+        _ <- (metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
           .mapTo[CommitLogCoordinatorSubscribed]
-      } yield msg
+      } yield msg).onComplete {
+        case Success(_) =>
+        case Failure(_) =>
+      }
 
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
 
+      val nodeName = createNodeName(member)
+
+      val guardianRef = context.actorSelection(s"/user/guardian_$selfNodeName")
+
       (for {
-        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _, _, _) <- (context.actorSelection(
-          s"/user/guardian_$selfNodeName") ? GetNodeChildActors).mapTo[NodeChildActorsGot]
-        _ <- (readCoordinator ? UnsubscribeMetricsDataActor(createNodeName(member))).mapTo[MetricsDataActorUnSubscribed]
-        _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(createNodeName(member)))
+        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _, _, _) <- (guardianRef ? GetNodeChildActors)
+          .mapTo[NodeChildActorsGot]
+        _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
+        _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
           .mapTo[CommitLogCoordinatorUnSubscribed]
-        _ <- (writeCoordinator ? UnSubscribePublisher(createNodeName(member))).mapTo[PublisherUnSubscribed]
-        _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(createNodeName(member)))
+        _ <- (writeCoordinator ? UnSubscribePublisher(nodeName)).mapTo[PublisherUnSubscribed]
+        _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(nodeName))
           .mapTo[MetricsDataActorUnSubscribed]
-        _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(createNodeName(member)))
+        _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(nodeName))
           .mapTo[MetricsDataActorUnSubscribed]
-        _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(createNodeName(member)))
+        _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
           .mapTo[CommitLogCoordinatorUnSubscribed]
-        removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(createNodeName(member)))
+        removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeName))
           .mapTo[RemoveNodeMetadataResponse]
       } yield removeNodeMetadataResponse).map {
         case NodeMetadataRemoved(nodeName) =>

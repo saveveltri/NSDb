@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
+import akka.cluster.Cluster
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
@@ -45,6 +46,7 @@ import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 object WriteCoordinator {
 
@@ -378,22 +380,16 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
   override def receive: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      if (!metricsDataActors.get(nodeName).contains(actor)) {
-        metricsDataActors += (nodeName -> actor)
-        log.info(s"subscribed data actor for node $nodeName")
-      }
+      metricsDataActors += (nodeName -> actor)
+      log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-        commitLogCoordinators += (nodeName -> actor)
-        log.info(s"subscribed commit log actor for node $nodeName")
-      }
+      commitLogCoordinators += (nodeName -> actor)
+      log.info(s"subscribed commit log actor for node $nodeName")
       sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case SubscribePublisher(actor: ActorRef, nodeName) =>
-      if (!publishers.get(nodeName).contains(actor)) {
-        publishers += (nodeName -> actor)
-        log.info(s"subscribed publisher actor for node $nodeName")
-      }
+      publishers += (nodeName -> actor)
+      log.info(s"subscribed publisher actor for node $nodeName")
       sender() ! PublisherSubscribed(actor, nodeName)
 
     case UnsubscribeMetricsDataActor(nodeName) =>

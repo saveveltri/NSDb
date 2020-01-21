@@ -19,11 +19,9 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
-import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
-import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.common.NSDbNumericType
@@ -43,7 +41,6 @@ import spire.math.Interval
 
 import scala.collection.mutable
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 
 /**
   * Actor that receives and handles every read request.
