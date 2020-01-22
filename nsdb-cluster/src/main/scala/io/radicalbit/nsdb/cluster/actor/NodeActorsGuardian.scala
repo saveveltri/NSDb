@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
   */
-class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogging {
+class NodeActorsGuardian() extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
@@ -64,6 +64,12 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
     s"schema-coordinator_$nodeName"
   )
+
+  private val clusterListener = context
+    .actorOf(
+      Props[ClusterListener].withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      name = s"cluster-listener_${createNodeName(selfMember)}"
+    )
 
   private lazy val metadataCoordinator =
     context.actorOf(
@@ -123,9 +129,4 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
                                   metricsDataActor,
                                   publisherActor)
   }
-}
-
-object NodeActorsGuardian {
-  def props(clusterListener: ActorRef): Props =
-    Props(new NodeActorsGuardian(clusterListener))
 }

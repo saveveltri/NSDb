@@ -41,6 +41,7 @@ import spire.math.Interval
 
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 /**
   * Actor that receives and handles every read request.
@@ -59,11 +60,13 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
   private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-//  override def preStart(): Unit = {
-//
-//    mediator ! Subscribe(COORDINATORS_TOPIC, self)
-//
-//  }
+  val interval = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+
+  context.system.scheduler.schedule(interval, interval) {
+    log.error(s"------------------------------ $self metrics data actors $metricsDataActors")
+  }
 
   private def filterLocationsThroughTime(expression: Option[Expression], locations: Seq[Location]): Seq[Location] = {
     val intervals = TimeRangeManager.extractTimeRange(expression)
@@ -137,7 +140,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
-        log.info(s"subscribed data actor for node $nodeName")
+        log.info(s"subscribed data actor $actor for node $nodeName")
       }
       sender ! MetricsDataActorSubscribed(actor, nodeName)
     case UnsubscribeMetricsDataActor(nodeName) =>

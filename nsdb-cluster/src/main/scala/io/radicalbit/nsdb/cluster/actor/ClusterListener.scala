@@ -74,15 +74,9 @@ class ClusterListener() extends ActorPathLogging {
     */
   private val nsdbMetrics: mutable.Map[String, Set[NodeMetrics]] = mutable.Map.empty
 
-  private lazy val nodeActorsGuardian =
-    context.system.actorOf(
-      NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
-      name = s"guardian_$selfNodeName")
-
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
-    log.info("Created nodeActorsGuardian at path {} ", nodeActorsGuardian.path)
     clusterMetricSystem.subscribe(self)
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
   }
@@ -94,6 +88,8 @@ class ClusterListener() extends ActorPathLogging {
       log.info("Self Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)
+
+      val nodeActorsGuardian = context.parent
 
       val subscribedNodeChildActors = for {
         msg @ NodeChildActorsGot(metadataCoordinator,
@@ -150,12 +146,16 @@ class ClusterListener() extends ActorPathLogging {
       val nodeName = createNodeName(member)
 
       (for {
+        otherNodeActorGuardian <- context.system.actorSelection(s"/user/guardian_$nodeName").resolveOne()
         msg @ NodeChildActorsGot(metadataCoordinator,
                                  writeCoordinator,
                                  readCoordinator,
                                  commitLogCoordinator,
                                  metricsDataActor,
-                                 publisherActor) <- (nodeActorsGuardian ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+                                 publisherActor) <- {
+          log.error("------------------------------------- inside ")
+          (otherNodeActorGuardian ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+        }
         _ <- (readCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName))
           .mapTo[MetricsDataActorSubscribed]
         _ <- (writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
@@ -167,10 +167,7 @@ class ClusterListener() extends ActorPathLogging {
           .mapTo[MetricsDataActorSubscribed]
         _ <- (metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
           .mapTo[CommitLogCoordinatorSubscribed]
-      } yield msg).onComplete {
-        case Success(_) =>
-        case Failure(_) =>
-      }
+      } yield msg)
 
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)

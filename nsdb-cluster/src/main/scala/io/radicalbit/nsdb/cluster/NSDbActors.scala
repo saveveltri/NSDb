@@ -61,10 +61,9 @@ trait NSDbActors {
       name = "databaseActorGuardianProxy"
     )
 
-    system
-      .actorOf(
-        Props[ClusterListener].withDeploy(Deploy(scope = RemoteScope(Cluster(system).selfMember.address))),
-        name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
-      )
+    system.actorOf(
+      Props[NodeActorsGuardian].withDeploy(Deploy(scope = RemoteScope(Cluster(system).selfMember.address))),
+      name = s"guardian_${createNodeName(Cluster(system).selfMember)}"
+    )
   }
 }
