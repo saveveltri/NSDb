@@ -84,8 +84,8 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   private val childName = s"commit-log-checker-$db-$namespace-$metric"
 
-  private var file: File               = _
-  private var fileOS: FileOutputStream = _
+  private var file: File           = _
+  private var fileOS: OutputStream = _
 
   override protected implicit val serializer: CommitLogSerializer =
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
@@ -147,7 +147,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     log.debug("Entry {} appended successfully to the commit log file {}.", entry, file.getAbsoluteFile)
   }
 
-  protected def checkAndUpdateRollingFile(current: File): Option[(File, FileOutputStream)] =
+  protected def checkAndUpdateRollingFile(current: File): Option[(File, OutputStream)] =
     if (current.length() >= maxSize) {
 
       val f = newFile(current)
@@ -168,7 +168,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     new File(s"$directory/$nextFile")
   }
 
-  protected def newOutputStream(file: File): FileOutputStream = new FileOutputStream(file, true)
+  protected def newOutputStream(file: File): OutputStream = CommitLogFile.outputStream(file)
 
   override def receive: Receive = super.receive orElse {
     case ReceiveTimeout =>

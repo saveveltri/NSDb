@@ -15,8 +15,9 @@
  */
 
 package io.radicalbit.nsdb.commit_log
-import java.io.{File, FileOutputStream}
+import java.io.File
 import java.util.UUID
+import CommitLogFile._
 
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
@@ -31,7 +32,7 @@ class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with B
     "return an empty list if all entries are finalised" in {
 
       val file   = new File(s"$directory/testCommitLog${UUID.randomUUID().toString}")
-      val fileOS = new FileOutputStream(file, true)
+      val fileOS = CommitLogFile.outputStream(file)
 
       balancedEntrySeq.foreach { entry =>
         fileOS.write(serializer.serialize(entry))
@@ -40,8 +41,6 @@ class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with B
 
       fileOS.close()
 
-      import CommitLogFile.CommitLogFile
-
       file.checkPendingEntries._1.size shouldBe 3
       file.checkPendingEntries._2.size shouldBe 3
 
@@ -49,7 +48,7 @@ class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with B
 
     "return an nonempty list if some entries are not finalised " in {
       val file   = new File(s"$directory/testCommitLog${UUID.randomUUID().toString}")
-      val fileOS = new FileOutputStream(file, true)
+      val fileOS = CommitLogFile.outputStream(file)
 
       unbalancedEntrySeq foreach { entry =>
         fileOS.write(serializer.serialize(entry))
@@ -57,8 +56,6 @@ class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with B
 
       fileOS.flush()
       fileOS.close()
-
-      import CommitLogFile.CommitLogFile
 
       file.checkPendingEntries._1 shouldBe Seq(id0, id1, id2)
       file.checkPendingEntries._2 shouldBe Seq(id0, id2)

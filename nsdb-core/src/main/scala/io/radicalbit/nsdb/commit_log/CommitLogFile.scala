@@ -15,7 +15,8 @@
  */
 
 package io.radicalbit.nsdb.commit_log
-import java.io.{File, FileInputStream}
+import java.io.{File, FileInputStream, FileOutputStream, InputStream, OutputStream}
+import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 
@@ -24,9 +25,19 @@ import scala.collection.mutable.ListBuffer
 object CommitLogFile {
 
   /**
+    * Creates a new [[OutputStream]] for the given file.
+    */
+  def outputStream(file: File): OutputStream = new GZIPOutputStream(new FileOutputStream(file, true))
+
+  /**
+    * Creates a new [[InputStream]] for the given file.
+    */
+  def iutputStream(file: File): InputStream = new GZIPInputStream(new FileInputStream(file))
+
+  /**
     * Useful to add the check entries feature to a File
     */
-  implicit class CommitLogFile(val file: File) {
+  implicit class CommitLogFileConv(val file: File) {
 
     /**
       * Check if the entries of the file (It is supposed to be a valid commit log file) are balanced,
@@ -39,7 +50,7 @@ object CommitLogFile {
       val closedEntries: ListBuffer[Int] = ListBuffer.empty[Int]
 
       val contents    = new Array[Byte](5000)
-      val inputStream = new FileInputStream(file)
+      val inputStream = CommitLogFile.iutputStream(file)
       var r           = inputStream.read(contents)
       while (r != -1) {
 

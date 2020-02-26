@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.commit_log
 
-import java.io.{File, FileOutputStream}
+import java.io.File
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, 
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfter, Matchers, WordSpecLike}
+import CommitLogFile._
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -61,7 +62,7 @@ class RollingCommitLogFileWriterSpec
         val secondFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq(firstFileName))
 
         val balancedFile   = new File(s"$directory/$firstFileName")
-        val balancedFileOS = new FileOutputStream(balancedFile, true)
+        val balancedFileOS = CommitLogFile.outputStream(balancedFile)
 
         balancedEntrySeq foreach { entry =>
           balancedFileOS.write(serializer.serialize(entry))
@@ -71,7 +72,7 @@ class RollingCommitLogFileWriterSpec
         balancedFileOS.close()
 
         val unbalancedFile   = new File(s"$directory/$secondFileName")
-        val unbalancedFileOS = new FileOutputStream(unbalancedFile, true)
+        val unbalancedFileOS = CommitLogFile.outputStream(unbalancedFile)
 
         unbalancedEntrySeq foreach { entry =>
           unbalancedFileOS.write(serializer.serialize(entry))
@@ -97,7 +98,7 @@ class RollingCommitLogFileWriterSpec
         val secondFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq(firstFileName))
 
         val unbalancedFile   = new File(s"$directory/$secondFileName")
-        val unbalancedFileOS = new FileOutputStream(unbalancedFile, true)
+        val unbalancedFileOS = CommitLogFile.outputStream(unbalancedFile)
 
         unbalancedEntrySeq foreach { entry =>
           unbalancedFileOS.write(serializer.serialize(entry))
@@ -118,7 +119,9 @@ class RollingCommitLogFileWriterSpec
             .getOrElse(Set.empty)
 
           existingFiles.size shouldBe 1
-          new File(s"$directory/${existingFiles.head}").length() shouldBe 0
+          val entries = new File(s"$directory/${existingFiles.head}").checkPendingEntries
+          entries._1.isEmpty shouldBe true
+          entries._2.isEmpty shouldBe true
         }
       }
 
