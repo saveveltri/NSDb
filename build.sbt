@@ -24,6 +24,8 @@ lazy val root = project
     publish := {},
     publishLocal := {}
   )
+  .enablePlugins(MicrositesPlugin)
+  .settings(Microsite.settings: _*)
   .aggregate(
     `nsdb-common`,
     `nsdb-core`,
