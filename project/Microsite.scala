@@ -10,10 +10,11 @@ object Microsite {
   lazy val settings: Seq[Def.Setting[_]] = Seq(
     micrositeName := "NSDb",
     micrositeDescription := "NSDb",
-    micrositeBaseUrl := "nsdb",
+//    micrositeBaseUrl := "nsdb",
     micrositeDocumentationUrl := "docs",
     micrositeGithubOwner := "radicalbit",
     micrositeGithubRepo := "NSDb",
+    micrositeFooterText := None,
 //    micrositeGithubToken := sys.env.get(orgGithubTokenSetting.value),
 //    micrositePushSiteWith := GitHub4s,
     includeFilter in makeSite := "*.html" | "*.css" | "*.png" | "*.jpg" | "*.gif" | "*.js" | "*.swf" | "*.md" | "*.svg"

@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: HTTP Api
-permalink: nsdb/docs/contributing/
+permalink: docs/contributing/
 ---
 
 # Contributing guidelines

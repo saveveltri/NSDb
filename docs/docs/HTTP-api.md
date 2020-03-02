@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: HTTP Api
-permalink: nsdb/docs/http-api/
+permalink: docs/http-api/
 ---
 
 # Web APIs

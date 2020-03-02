@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: Architecture
-permalink: nsdb/docs/architecture/
+permalink: docs/architecture/
 ---
 
 # Nsdb Architecture

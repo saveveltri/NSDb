@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: Architecture
-permalink: nsdb/docs/getting-started/
+permalink: docs/getting-started/
 ---
 
 # Natural Series DB - NSDB #

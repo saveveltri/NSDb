@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: Clustering
-permalink: nsdb/docs/sql/
+permalink: docs/sql/
 ---
 
 # Supported SQL Dialect Reference

@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: Clustering
-permalink: nsdb/docs/clustering/
+permalink: docs/clustering/
 ---
 
 # Clustering

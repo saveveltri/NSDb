@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: JVM api
-permalink: nsdb/docs/jvm-api/
+permalink: docs/jvm-api/
 ---
 
 # Integration API
