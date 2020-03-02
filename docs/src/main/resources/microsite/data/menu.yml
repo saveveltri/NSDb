@@ -1,0 +1,21 @@
+options:
+  - title: Intro
+    url: docs/
+
+  - title: Getting Started
+    url: docs/getting-started/
+
+  - title: Architecture
+    url: docs/architecture/
+
+  - title: SQL
+    url: docs/sql/
+
+  - title: HTTP Api
+    url: docs/http-api/
+
+  - title: JVM Api
+    url: docs/jvm-api/
+
+  - title: Contributing
+    url: docs/contributing/

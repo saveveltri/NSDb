@@ -52,7 +52,7 @@ mainRunner
 *.sc
 
 # docker-compose example not traced volumes
-data
+data/**
 certs
 native
 
