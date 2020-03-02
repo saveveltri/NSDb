@@ -8,12 +8,12 @@ import sbt._
 
 object Microsite {
   lazy val settings: Seq[Def.Setting[_]] = Seq(
-    micrositeName := "nsdb",
+    micrositeName := "NSDb",
     micrositeDescription := "NSDb",
     micrositeBaseUrl := "nsdb",
     micrositeDocumentationUrl := "docs",
-    micrositeGithubOwner := "47deg",
-    micrositeGithubRepo := "nsdb",
+    micrositeGithubOwner := "radicalbit",
+    micrositeGithubRepo := "NSDb",
 //    micrositeGithubToken := sys.env.get(orgGithubTokenSetting.value),
 //    micrositePushSiteWith := GitHub4s,
     includeFilter in makeSite := "*.html" | "*.css" | "*.png" | "*.jpg" | "*.gif" | "*.js" | "*.swf" | "*.md" | "*.svg"

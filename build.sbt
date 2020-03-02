@@ -24,8 +24,6 @@ lazy val root = project
     publish := {},
     publishLocal := {}
   )
-  .enablePlugins(MicrositesPlugin)
-  .settings(Microsite.settings: _*)
   .aggregate(
     `nsdb-common`,
     `nsdb-core`,
@@ -255,6 +253,13 @@ lazy val `nsdb-it` = (project in file("nsdb-it"))
   .settings(Defaults.itSettings)
   .dependsOn(`nsdb-cluster`)
   .dependsOn(`nsdb-scala-api`)
+
+lazy val `docs` = (project in file("docs"))
+  .enablePlugins(MicrositesPlugin)
+  .settings(Microsite.settings: _*)
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
+
 scalafmtOnCompile in ThisBuild := true
 // make run command include the provided dependencies
 run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))
