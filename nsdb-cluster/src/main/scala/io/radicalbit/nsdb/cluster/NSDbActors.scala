@@ -34,6 +34,8 @@ trait NSDbActors {
 
   implicit def system: ActorSystem
 
+  lazy val cluster = Cluster(system)
+
   implicit lazy val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
@@ -56,7 +58,6 @@ trait NSDbActors {
 
     DistributedData(system).replicator
 
-    system.actorOf(ClusterListener.props(true),
-                   name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
+    system.actorOf(ClusterListener.props(true), name = s"cluster-listener_${createNodeName(cluster.selfMember)}")
   }
 }

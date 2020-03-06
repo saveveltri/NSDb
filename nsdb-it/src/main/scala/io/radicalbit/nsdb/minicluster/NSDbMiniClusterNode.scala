@@ -25,4 +25,8 @@ class NSDbMiniClusterNode(val hostname: String,
                           val passivateAfter: Duration = Duration.ofHours(1))
     extends NSDBAkkaMiniCluster
     with NSDbActors
-    with NSDbMiniClusterConfigProvider
+    with NSDbMiniClusterConfigProvider {
+
+  def leave(): Unit = cluster.leave(cluster.selfMember.uniqueAddress.address)
+
+}
