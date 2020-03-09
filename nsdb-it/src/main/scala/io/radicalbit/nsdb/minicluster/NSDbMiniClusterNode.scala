@@ -18,14 +18,29 @@ package io.radicalbit.nsdb.minicluster
 
 import java.time.Duration
 
+import akka.actor.ActorSystem
 import io.radicalbit.nsdb.cluster.NSDbActors
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class NSDbMiniClusterNode(val hostname: String,
                           val storageDir: String,
                           val passivateAfter: Duration = Duration.ofHours(1))
-    extends NSDBAkkaMiniCluster
-    with NSDbActors
+    extends NSDbActors
     with NSDbMiniClusterConfigProvider {
+
+  implicit var system: ActorSystem = _
+
+  def start(): Unit = {
+    system = ActorSystem("NSDb", config)
+    initTopLevelActors()
+  }
+
+  def stop(): Unit = {
+    Await.result(system.terminate(), 10.seconds)
+//    Await.result(system.whenTerminated, 10.seconds)
+  }
 
   def leave(): Unit = cluster.leave(cluster.selfMember.uniqueAddress.address)
 
