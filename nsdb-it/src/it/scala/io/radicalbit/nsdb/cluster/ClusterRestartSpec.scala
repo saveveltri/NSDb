@@ -24,6 +24,5 @@ class ClusterRestartSpec extends ReadCoordinatorClusterSpec {
     super.beforeAll()
     stop()
     start(false)
-    waitIndexing()
   }
 }
