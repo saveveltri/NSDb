@@ -26,9 +26,11 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
 
-  val nodesNumber: Int
+  override protected[this] def rootFolder: String = s"target/minicluster/$instanceId/"
 
-  implicit val formats = DefaultFormats
+  def nodesNumber: Int
+
+  implicit val formats: DefaultFormats = DefaultFormats
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(20, Seconds))
 
