@@ -18,13 +18,13 @@ package io.radicalbit.nsdb.test
 
 import java.time.Duration
 
-import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
+import io.radicalbit.nsdb.minicluster.NSDbMiniCluster
 import org.json4s.DefaultFormats
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
+trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually with NSDbMiniCluster {
 
   override protected[this] def rootFolder: String = s"target/minicluster/$instanceId/"
 

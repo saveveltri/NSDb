@@ -26,6 +26,8 @@ import scala.concurrent.duration._
 
 class NSDbMiniClusterNode(val hostname: String,
                           val storageDir: String,
+                          val replicationFactor: Int,
+                          val consistencyLevel: Int,
                           val passivateAfter: Duration = Duration.ofHours(1))
     extends NSDbActors
     with NSDbMiniClusterConfigProvider {

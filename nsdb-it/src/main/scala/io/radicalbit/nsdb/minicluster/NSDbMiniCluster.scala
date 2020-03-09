@@ -23,23 +23,28 @@ import java.util.UUID
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.FileUtils
 
-trait NsdbMiniCluster extends LazyLogging {
+trait NSDbMiniCluster extends LazyLogging {
 
-  protected[this] val instanceId = { UUID.randomUUID }
+  protected[this] val instanceId: String =  UUID.randomUUID.toString
 
-  protected[this] val startingHostname = "127.0.0."
+  private[this] val hostnamePrefix = "127.0.0."
   protected[this] def rootFolder: String
 
   protected[this] def nodesNumber: Int
   protected[this] def passivateAfter: Duration
+
+  protected[this] lazy val replicationFactor: Int = nodesNumber
+  protected[this] lazy val consistencyLevel: Int = nodesNumber
 
   lazy val nodes: Set[NSDbMiniClusterNode] =
     (for {
       i <- 0 until nodesNumber
     } yield
       new NSDbMiniClusterNode(
-        hostname = s"$startingHostname${i + 1}",
+        hostname = s"$hostnamePrefix${i + 1}",
         storageDir = s"$rootFolder/data$i",
+        replicationFactor = replicationFactor,
+        consistencyLevel = consistencyLevel,
         passivateAfter = passivateAfter
       )).toSet
 
