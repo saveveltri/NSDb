@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.6.3"
+    lazy val version   = "2.6.5"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor                  = namespace %% "akka-actor"                  % version
@@ -72,7 +72,7 @@ object Dependencies {
   }
 
   object akka_management {
-    lazy val version   = "1.0.5"
+    lazy val version   = "1.0.7"
     lazy val namespace = "com.lightbend.akka.management"
     lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
     lazy val cluster_http = namespace %% "akka-management-cluster-http" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
@@ -136,7 +136,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.4.1"
+    lazy val version     = "8.5.1"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
