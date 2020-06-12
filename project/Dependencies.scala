@@ -129,12 +129,6 @@ object Dependencies {
     lazy val javaWebsocket = namespace % "Java-WebSocket" % version
   }
 
-  object json4s {
-    lazy val version   = "3.6.7"
-    lazy val namespace = "org.json4s"
-    lazy val jackson   = namespace %% "json4s-jackson" % version
-  }
-
   object lucene {
     lazy val version     = "8.4.1"
     lazy val namespace   = "org.apache.lucene"
@@ -303,7 +297,6 @@ object Dependencies {
       akka.stream,
       akka_http.default,
       akka.stream,
-      json4s.jackson,
       akka_http.sprayJson,
       javaWebsocket.javaWebsocket,
       scalatest.core % Test,

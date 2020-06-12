@@ -36,8 +36,6 @@ import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.web.QueryEnriched
 import io.swagger.annotations._
 import javax.ws.rs.Path
-import org.json4s.Formats
-import org.json4s.jackson.Serialization.write
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -145,7 +143,7 @@ trait QueryApi {
       new ApiResponse(code = 500, message = "Internal server error"),
       new ApiResponse(code = 400, message = "statement is invalid")
     ))
-  def queryApi()(implicit logger: LoggingAdapter, format: Formats): Route = {
+  def queryApi()(implicit logger: LoggingAdapter): Route = {
     path("query") {
       post {
         entity(as[QueryBody]) { qb =>
@@ -160,9 +158,8 @@ trait QueryApi {
                 case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
-                      complete(HttpEntity(ContentTypes.`application/json`,
-                                          write(QueryResponse(values, qb.parsed.map(_ => statement)))))
-                    case Success(SelectStatementFailed(_, reason, MetricNotFound(_))) =>
+                      complete(QueryResponse(values, qb.parsed.map(_ => statement)))
+                    case Success(SelectStatementFailed(_, reason, MetricNotFound(metric))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>
                       complete(HttpResponse(InternalServerError, entity = reason))

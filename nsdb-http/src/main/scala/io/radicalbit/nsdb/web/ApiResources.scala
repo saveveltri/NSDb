@@ -36,8 +36,7 @@ class ApiResources(val publisherActor: ActorRef,
                    val metadataCoordinator: ActorRef,
                    val authenticationProvider: NSDBAuthProvider)(override implicit val timeout: Timeout,
                                                                  implicit val logger: LoggingAdapter,
-                                                                 override implicit val ec: ExecutionContext,
-                                                                 override implicit val formats: Formats)
+                                                                 override implicit val ec: ExecutionContext)
     extends CommandApi
     with QueryApi
     with QueryValidationApi
