@@ -33,7 +33,6 @@ import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.swagger.annotations._
 import javax.ws.rs.Path
-import org.json4s.Formats
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -55,7 +54,6 @@ trait QueryValidationApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: Formats
 
   @ApiOperation(value = "Perform query", nickname = "query", httpMethod = "POST", response = classOf[String])
   @ApiImplicitParams(
