@@ -16,13 +16,12 @@
 
 package io.radicalbit.nsdb.web.routes
 
-import javax.ws.rs.Path
 import akka.actor.ActorRef
-import akka.pattern.ask
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
@@ -30,7 +29,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, RecordRe
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.swagger.annotations._
-import org.json4s.Formats
+import javax.ws.rs.Path
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -56,7 +55,6 @@ trait DataApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: Formats
 
   @ApiOperation(value = "Insert Bit", nickname = "insert", httpMethod = "POST", response = classOf[String])
   @ApiImplicitParams(
