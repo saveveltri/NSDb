@@ -100,13 +100,15 @@ object NSDbJsonProtocol extends DefaultJsonProtocol with SprayJsonSupport {
       }
   }
 
-  implicit val QbRegisterQueryFormat: RootJsonFormat[RegisterQuery] = jsonFormat7(RegisterQuery.apply)
+  implicit val QbRegisterQueryFormat: RootJsonFormat[RegisterQuery] = jsonFormat4(RegisterQuery.apply)
 
   implicit val QbFormat: RootJsonFormat[QueryBody] = jsonFormat8(QueryBody.apply)
 
   implicit val QvbFormat: RootJsonFormat[QueryValidationBody] = jsonFormat4(QueryValidationBody.apply)
 
   implicit val BitFormat: RootJsonFormat[Bit] = jsonFormat4(Bit.apply)
+
+  implicit val QueryResponseFormat: RootJsonFormat[QueryResponse] = jsonFormat2(QueryResponse.apply)
 
   implicit val InsertBodyFormat: RootJsonFormat[InsertBody] = jsonFormat4(InsertBody.apply)
 

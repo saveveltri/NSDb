@@ -18,8 +18,9 @@ package io.radicalbit.nsdb.web.routes
 
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError, NotFound}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
@@ -109,9 +110,16 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
                        Boolean] = None)
     extends Metric
 
+@ApiModel(description = "Query Response")
+case class QueryResponse(
+                          @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
+                          @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
+                            SelectSQLStatement]
+                        )
+
 @Api(value = "/query", produces = "application/json")
 @Path("/query")
-trait QueryApi {
+trait QueryApi extends SprayJsonSupport {
 
   import io.radicalbit.nsdb.web.NSDbJson._
 
@@ -119,13 +127,6 @@ trait QueryApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-
-  @ApiModel(description = "Query Response")
-  case class QueryResponse(
-      @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
-      @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
-        SQLStatement]
-  )
 
   @ApiOperation(value = "Perform query", nickname = "query", httpMethod = "POST", response = classOf[QueryResponse])
   @ApiImplicitParams(

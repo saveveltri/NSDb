@@ -17,8 +17,8 @@
 package io.radicalbit.nsdb.web.routes
 
 import akka.actor.ActorRef
+import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes.{InternalServerError, NotFound}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
@@ -28,17 +28,19 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
+import io.radicalbit.nsdb.web.NSDbJsonProtocol.jsonFormat1
 import io.swagger.annotations._
 import javax.ws.rs.Path
-import org.json4s.Formats
-import org.json4s.jackson.Serialization.write
+import spray.json._
+import DefaultJsonProtocol._
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 @Api(value = "/commands", produces = "application/json")
 @Path("/commands")
-trait CommandApi {
+trait CommandApi extends SprayJsonSupport {
 
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
@@ -46,7 +48,6 @@ trait CommandApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: Formats
   implicit val ec: ExecutionContext
 
   case class CommandRequestDatabase(db: String)                                  extends Db
@@ -59,6 +60,16 @@ trait CommandApi {
   case class ShowMetricsResponse(metrics: Set[String])       extends CommandResponse
   case class Field(name: String, `type`: String)
   case class DescribeMetricResponse(fields: Set[Field], metricInfo: Option[MetricInfo]) extends CommandResponse
+
+  implicit val showDbsResponseFormat: RootJsonFormat[ShowDbsResponse] = jsonFormat1(ShowDbsResponse.apply)
+  implicit val showShowNamespacesResponse: RootJsonFormat[ShowNamespacesResponse] = jsonFormat1(
+    ShowNamespacesResponse.apply)
+  implicit val showMetricsResponseResponse: RootJsonFormat[ShowMetricsResponse] = jsonFormat1(ShowMetricsResponse.apply)
+
+  implicit val fieldResponse: RootJsonFormat[Field]           = jsonFormat2(Field.apply)
+  implicit val metricInfoResponse: RootJsonFormat[MetricInfo] = jsonFormat5(MetricInfo.apply)
+  implicit val describeMetricResponseResponse: RootJsonFormat[DescribeMetricResponse] = jsonFormat2(
+    DescribeMetricResponse.apply)
 
   @Api(value = "/dbs", produces = "application/json")
   @Path("/dbs")
@@ -77,7 +88,7 @@ trait CommandApi {
           (pathEnd & get) {
             onComplete(readCoordinator ? GetDbs) {
               case Success(DbsGot(dbs)) =>
-                complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
+                complete(ShowDbsResponse(dbs))
               case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
               case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
             }
@@ -109,7 +120,7 @@ trait CommandApi {
               authenticationProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
                 onComplete(readCoordinator ? GetNamespaces(db)) {
                   case Success(NamespacesGot(_, namespaces)) =>
-                    complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+                    complete(ShowNamespacesResponse(namespaces))
                   case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
                   case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
@@ -191,7 +202,7 @@ trait CommandApi {
                   authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
                     onComplete(readCoordinator ? GetMetrics(db, namespace)) {
                       case Success(MetricsGot(_, _, metrics)) =>
-                        complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
+                        complete(ShowMetricsResponse(metrics))
                       case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
                       case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                     }
@@ -240,35 +251,25 @@ trait CommandApi {
                     )) {
                     case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
                       complete(
-                        HttpEntity(
-                          ContentTypes.`application/json`,
-                          write(
-                            DescribeMetricResponse(
-                              schema.fieldsMap.map {
-                                case (_, field) =>
-                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                              }.toSet,
-                              metricInfo
-                            )
-                          )
+                        DescribeMetricResponse(
+                          schema.fieldsMap.map {
+                            case (_, field) =>
+                              Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                          }.toSet,
+                          metricInfo
                         )
                       )
                     case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
                       complete(
-                        HttpEntity(
-                          ContentTypes.`application/json`,
-                          write(
-                            DescribeMetricResponse(
-                              schemaOpt
-                                .map(s =>
-                                  s.fieldsMap.map {
-                                    case (_, field) =>
-                                      Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                                  }.toSet)
-                                .getOrElse(Set.empty),
-                              Some(metricInfo)
-                            )
-                          )
+                        DescribeMetricResponse(
+                          schemaOpt
+                            .map(s =>
+                              s.fieldsMap.map {
+                                case (_, field) =>
+                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                              }.toSet)
+                            .getOrElse(Set.empty),
+                          Some(metricInfo)
                         )
                       )
                     case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>

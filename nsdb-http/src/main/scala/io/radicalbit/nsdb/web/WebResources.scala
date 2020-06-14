@@ -28,7 +28,6 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.security.NsdbSecurity
-import org.json4s.Formats
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -42,8 +41,6 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
 
   import CORSSupport._
   import VersionHeader._
-
-  implicit def formats: Formats
 
   def config: Config
 
