@@ -26,9 +26,9 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
-import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
-import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -112,10 +112,10 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
 
 @ApiModel(description = "Query Response")
 case class QueryResponse(
-                          @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
-                          @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
-                            SelectSQLStatement]
-                        )
+    @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
+    @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
+      SelectSQLStatement]
+)
 
 @Api(value = "/query", produces = "application/json")
 @Path("/query")

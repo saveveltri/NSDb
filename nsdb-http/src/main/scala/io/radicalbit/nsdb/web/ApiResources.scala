@@ -26,7 +26,6 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.swagger.SwaggerDocService
-import org.json4s.Formats
 
 import scala.concurrent.ExecutionContext
 

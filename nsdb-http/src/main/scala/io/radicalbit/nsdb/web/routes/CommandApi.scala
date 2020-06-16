@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.web.routes
 
 import akka.actor.ActorRef
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes.{InternalServerError, NotFound}
 import akka.http.scaladsl.server.Directives._
@@ -28,12 +29,10 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
-import io.radicalbit.nsdb.web.NSDbJsonProtocol.jsonFormat1
 import io.swagger.annotations._
 import javax.ws.rs.Path
+import spray.json.DefaultJsonProtocol._
 import spray.json._
-import DefaultJsonProtocol._
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
