@@ -97,7 +97,7 @@ class SelectSQLEqExpressionSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully on string dimension with special characters" in {
-        val query = "select name from people where name = '_spe,cial:_-' limit 5"
+        val query = "select name from people where name = '_spe.cial:_-' limit 5"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
             query,
@@ -107,8 +107,8 @@ class SelectSQLEqExpressionSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("_spe,cial:_-")))),
+              condition = Some(
+                Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("_spe.cial:_-")))),
               limit = Some(LimitOperator(5))
             )
           ))
