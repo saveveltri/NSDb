@@ -46,6 +46,7 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     |  write-coordinator.timeout = 5 seconds
     |  metadata-coordinator.timeout = 5 seconds
     |  commit-log {
+    |    enabled = true
     |    serializer = "io.radicalbit.nsdb.commit_log.StandardCommitLogSerializer"
     |    writer = "io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter"
     |    directory = "target/commitLog"

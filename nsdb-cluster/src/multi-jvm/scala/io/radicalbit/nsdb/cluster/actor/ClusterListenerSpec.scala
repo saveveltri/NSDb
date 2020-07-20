@@ -71,6 +71,7 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
                                            |akka.loglevel = ERROR
                                            |akka.actor.provider = "cluster"
                                            |nsdb {
+                                           | global.timeout = 30 seconds
                                            | retry-policy {
                                            |    delay = 1 second
                                            |    n-retries = 2

@@ -115,7 +115,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
       s"write-coordinator_$actorNameSuffix"
     )
 
-  private val commitLogCoordinator =
+  private lazy val commitLogCoordinator =
     context.actorOf(
       Props[CommitLogCoordinator]
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))

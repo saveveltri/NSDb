@@ -21,8 +21,9 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorRef
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.MetricPerformerActor
-import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
+import io.radicalbit.nsdb.actors.MetricPerformerActor.{PersistedBits, PersistedBitsAck}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -36,6 +37,8 @@ import scala.concurrent.Future
   */
 class CommitLogCoordinator extends ActorPathLogging {
 
+  private val config: Config = context.system.settings.config
+
   private def getWriter(db: String, namespace: String, metric: String): ActorRef =
     context
       .child(s"commit-log-writer-$db-$namespace-$metric")
@@ -44,43 +47,51 @@ class CommitLogCoordinator extends ActorPathLogging {
                         s"commit-log-writer-$db-$namespace-$metric")
       )
 
-  implicit val timeout: Timeout = Timeout(
-    context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
-    TimeUnit.SECONDS)
+  implicit val timeout: Timeout =
+    Timeout(config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  def receive: Receive = {
-    case msg @ WriteToCommitLog(db, namespace, metric, _, _, _) =>
-      getWriter(db, namespace, metric).forward(msg)
+  private val commitLogEnabled: Boolean = config.getBoolean("nsdb.commit-log.enabled")
 
-    case persistedBits: PersistedBits =>
-      import context.dispatcher
-      // Handle successful events of Bit Persistence
-      val successfullyPersistedBits = persistedBits.persistedBits
+  def receive: Receive =
+    if (commitLogEnabled) {
+      case msg @ WriteToCommitLog(db, namespace, metric, _, _, _) =>
+        getWriter(db, namespace, metric).forward(msg)
 
-      val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
-        Future.sequence {
-          successfullyPersistedBits.map { persistedBit =>
-            (getWriter(persistedBit.db, persistedBit.namespace, persistedBit.metric) ?
-              WriteToCommitLog(persistedBit.db,
-                               persistedBit.namespace,
-                               persistedBit.metric,
-                               persistedBit.timestamp,
-                               PersistedEntryAction(persistedBit.bit),
-                               persistedBit.location)).collect {
-              case s: WriteToCommitLogSucceeded => s
+      case persistedBits: PersistedBits =>
+        import context.dispatcher
+        // Handle successful events of Bit Persistence
+        val successfullyPersistedBits = persistedBits.persistedBits
+
+        val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
+          Future.sequence {
+            successfullyPersistedBits.map { persistedBit =>
+              (getWriter(persistedBit.db, persistedBit.namespace, persistedBit.metric) ?
+                WriteToCommitLog(persistedBit.db,
+                                 persistedBit.namespace,
+                                 persistedBit.metric,
+                                 persistedBit.timestamp,
+                                 PersistedEntryAction(persistedBit.bit),
+                                 persistedBit.location)).collect {
+                case s: WriteToCommitLogSucceeded => s
+              }
             }
           }
+
+        val response = successfulCommitLogResponses.map { responses =>
+          if (responses.size == successfullyPersistedBits.size)
+            MetricPerformerActor.PersistedBitsAck
+          else
+            context.system.terminate()
         }
+        response.pipeTo(sender())
 
-      val response = successfulCommitLogResponses.map { responses =>
-        if (responses.size == successfullyPersistedBits.size)
-          MetricPerformerActor.PersistedBitsAck
-        else
-          context.system.terminate()
+      case _ =>
+        log.error("UnexpectedMessage")
+    } else
+      //behaviour that sends always positive response back
+      {
+        case WriteToCommitLog(db, namespace, metric, ts, _, location) =>
+          sender ! WriteToCommitLogSucceeded(db, namespace, ts, metric, location)
+        case PersistedBits(_) => sender ! PersistedBitsAck
       }
-      response.pipeTo(sender())
-
-    case _ =>
-      log.error("UnexpectedMessage")
-  }
 }
