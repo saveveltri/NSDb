@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, Props, Stash}
+import akka.actor.{ActorNotFound, ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
@@ -45,7 +45,7 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 object WriteCoordinator {
 
@@ -110,17 +110,19 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                              nodeName: String,
                              action: CommitLogAction,
                              location: Location): Future[CommitLogResponse] = {
-    commitLogCoordinators.get(nodeName) match {
-      case Some(commitLogCoordinator) =>
-        (commitLogCoordinator ? WriteToCommitLog(db = db,
-                                                 namespace = namespace,
-                                                 metric = metric,
-                                                 ts = ts,
-                                                 action = action,
-                                                 location)).mapTo[CommitLogResponse]
-      case None =>
-        Future(
-          WriteToCommitLogFailed(db, namespace, ts, metric, s"Commit log not existing for requested node: $nodeName "))
+    (for {
+      commitLogCoordinator <- context
+        .actorSelection(s"/user/guardian_$nodeName/commitlog-coordinator_$nodeName")
+        .resolveOne(5.seconds)
+      response <- (commitLogCoordinator ? WriteToCommitLog(db = db,
+                                                           namespace = namespace,
+                                                           metric = metric,
+                                                           ts = ts,
+                                                           action = action,
+                                                           location)).mapTo[CommitLogResponse]
+    } yield response).recover {
+      case ActorNotFound(_) =>
+        WriteToCommitLogFailed(db, namespace, ts, metric, s"Commit log not existing for requested node: $nodeName")
     }
   }
 
@@ -372,7 +374,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetPublishers)
       log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
       log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
@@ -386,12 +387,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         log.info(s"subscribed data actor for node $nodeName")
       }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-        commitLogCoordinators += (nodeName -> actor)
-        log.info(s"subscribed commit log actor for node $nodeName")
-      }
-      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case SubscribePublisher(actor: ActorRef, nodeName) =>
       if (!publishers.get(nodeName).contains(actor)) {
         publishers += (nodeName -> actor)
@@ -403,10 +398,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       metricsDataActors -= nodeName
       log.info(s"unsubscribed data actor for node $nodeName")
       sender() ! MetricsDataActorUnSubscribed(nodeName)
-    case UnSubscribeCommitLogCoordinator(nodeName) =>
-      commitLogCoordinators -= nodeName
-      log.info(s"unsubscribed commit log actor for node $nodeName")
-      sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case UnSubscribePublisher(nodeName) =>
       publishers -= nodeName
       log.info(s"unsubscribed publisher actor for node $nodeName")
@@ -445,12 +436,17 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
               (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations))
           }
           .map(_.flatten)
+
+        actorsWithLocations <- Future.sequence(locations.map {
+          case location @ Location(_, nodeName, _, _) =>
+            context
+              .actorSelection(s"/user/guardian_$nodeName/commitlog-coordinator_$nodeName")
+              .resolveOne(5.seconds)
+              .map((location, _))
+        })
+
         commitLogResponses <- Future.sequence {
-          locations
-            .collect {
-              case location if commitLogCoordinators.get(location.node).isDefined =>
-                (location, commitLogCoordinators(location.node))
-            }
+          actorsWithLocations
             .map {
               case (location, actor) =>
                 (actor ? WriteToCommitLog(db = db,
@@ -475,66 +471,90 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
       sequential(chain).pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      //FIXME add cluster aware deletion
       sequential {
-        writeCommitLog(
-          db,
-          namespace,
-          System.currentTimeMillis(),
-          metric,
-          commitLogCoordinators.keys.head,
-          DeleteAction(statement),
-          Location(metric, commitLogCoordinators.keys.head, 0, 0)
-        ).flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _, _) =>
-            if (metricsDataActors.isEmpty)
-              Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
-            else
-              (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
-                .flatMap {
-                  case SchemaGot(_, _, _, Some(schema)) =>
-                    (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
-                      case LocationsGot(_, _, _, locations) if locations.isEmpty =>
-                        Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
-                      case LocationsGot(_, _, _, locations) =>
-                        broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
-                      case _ =>
-                        Future(
-                          DeleteStatementFailed(db,
-                                                namespace,
-                                                metric,
-                                                s"Unable to fetch locations for metric ${statement.metric}"))
-                    }
-                  case _ =>
-                    Future(DeleteStatementFailed(db,
-                                                 namespace,
-                                                 metric,
-                                                 s"No schema found for metric ${statement.metric}"),
-                           MetricNotFound(metric))
-                }
-          case WriteToCommitLogFailed(_, _, _, _, reason) =>
-            log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-            context.system.terminate()
-        }
-      }.pipeTo(sender())
+        (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+          .flatMap {
+            case SchemaGot(_, _, _, Some(schema)) =>
+              (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
+                case LocationsGot(_, _, _, locations) if locations.isEmpty =>
+                  Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
+                case LocationsGot(_, _, _, locations) =>
+                  broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
+                case _ =>
+                  Future(
+                    DeleteStatementFailed(db,
+                                          namespace,
+                                          metric,
+                                          s"Unable to fetch locations for metric ${statement.metric}"))
+              }
+            case _ =>
+              Future(DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"),
+                     MetricNotFound(metric))
+          }
+      }
+
+    //FIXME add cluster aware deletion
+//      sequential {
+//        writeCommitLog(
+//          db,
+//          namespace,
+//          System.currentTimeMillis(),
+//          metric,
+//          commitLogCoordinators.keys.head,
+//          DeleteAction(statement),
+//          Location(metric, commitLogCoordinators.keys.head, 0, 0)
+//        ).flatMap {
+//          case WriteToCommitLogSucceeded(_, _, _, _, _) =>
+//            if (metricsDataActors.isEmpty)
+//              Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
+//            else
+//              (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+//                .flatMap {
+//                  case SchemaGot(_, _, _, Some(schema)) =>
+//                    (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
+//                      case LocationsGot(_, _, _, locations) if locations.isEmpty =>
+//                        Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
+//                      case LocationsGot(_, _, _, locations) =>
+//                        broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
+//                      case _ =>
+//                        Future(
+//                          DeleteStatementFailed(db,
+//                                                namespace,
+//                                                metric,
+//                                                s"Unable to fetch locations for metric ${statement.metric}"))
+//                    }
+//                  case _ =>
+//                    Future(DeleteStatementFailed(db,
+//                                                 namespace,
+//                                                 metric,
+//                                                 s"No schema found for metric ${statement.metric}"),
+//                           MetricNotFound(metric))
+//                }
+//          case WriteToCommitLogFailed(_, _, _, _, reason) =>
+//            log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+//            context.system.terminate()
+//        }
+//      }.pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
       val chain = for {
         locations <- (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations)
+        actorsWithLocations <- Future.sequence(locations.map {
+          case location @ Location(_, nodeName, _, _) =>
+            context
+              .actorSelection(s"/user/guardian_$nodeName/commitlog-coordinator_$nodeName")
+              .resolveOne(5.seconds)
+              .map((location, _))
+        })
         commitLogResponses <- Future.sequence {
-          locations
-            .collect {
-              case location if commitLogCoordinators.get(location.node).isDefined =>
-                (location, commitLogCoordinators(location.node))
-            }
-            .map {
-              case (location, actor) =>
-                (actor ? WriteToCommitLog(db = db,
-                                          namespace = namespace,
-                                          metric = metric,
-                                          ts = System.currentTimeMillis(),
-                                          action = DeleteMetricAction(),
-                                          location)).mapTo[CommitLogResponse]
-            }
+          actorsWithLocations.map {
+            case (location, actor) =>
+              (actor ? WriteToCommitLog(db = db,
+                                        namespace = namespace,
+                                        metric = metric,
+                                        ts = System.currentTimeMillis(),
+                                        action = DeleteMetricAction(),
+                                        location)).mapTo[CommitLogResponse]
+          }
         }
         _ <- {
           val (_, errors) = partitionResponses[WriteToCommitLogSucceeded, WriteToCommitLogFailed](commitLogResponses)

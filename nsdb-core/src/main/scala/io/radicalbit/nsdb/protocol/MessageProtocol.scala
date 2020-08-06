@@ -91,18 +91,15 @@ object MessageProtocol {
                                   publisher: ActorRef)
         extends NSDbSerializable
 
-    case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)     extends NSDbSerializable
-    case class UnsubscribeMetricsDataActor(nodeName: String)                    extends NSDbSerializable
-    case class SubscribeCommitLogCoordinator(actor: ActorRef, nodeName: String) extends NSDbSerializable
-    case class UnSubscribeCommitLogCoordinator(nodeName: String)                extends NSDbSerializable
-    case class SubscribePublisher(actor: ActorRef, nodeName: String)            extends NSDbSerializable
-    case class UnSubscribePublisher(nodeName: String)                           extends NSDbSerializable
+    case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String) extends NSDbSerializable
+    case class UnsubscribeMetricsDataActor(nodeName: String)                extends NSDbSerializable
+    case class SubscribePublisher(actor: ActorRef, nodeName: String)        extends NSDbSerializable
+    case class UnSubscribePublisher(nodeName: String)                       extends NSDbSerializable
 
     case object GetConnectedDataNodes extends NSDbSerializable
 
-    case object GetMetricsDataActors     extends NSDbSerializable
-    case object GetCommitLogCoordinators extends NSDbSerializable
-    case object GetPublishers            extends NSDbSerializable
+    case object GetMetricsDataActors extends NSDbSerializable
+    case object GetPublishers        extends NSDbSerializable
   }
 
   /**
@@ -219,13 +216,11 @@ object MessageProtocol {
     case class EvictedShardFailed(db: String, namespace: String, location: Location, reason: String)
         extends NSDbSerializable
 
-    case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String) extends NSDbSerializable
-    case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)     extends NSDbSerializable
-    case class PublisherSubscribed(actor: ActorRef, nodeName: String)            extends NSDbSerializable
+    case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String) extends NSDbSerializable
+    case class PublisherSubscribed(actor: ActorRef, nodeName: String)        extends NSDbSerializable
 
-    case class CommitLogCoordinatorUnSubscribed(nodeName: String) extends NSDbSerializable
-    case class MetricsDataActorUnSubscribed(nodeName: String)     extends NSDbSerializable
-    case class PublisherUnSubscribed(nodeName: String)            extends NSDbSerializable
+    case class MetricsDataActorUnSubscribed(nodeName: String) extends NSDbSerializable
+    case class PublisherUnSubscribed(nodeName: String)        extends NSDbSerializable
 
     case class ConnectedDataNodesGot(nodes: Seq[String]) extends NSDbSerializable
 

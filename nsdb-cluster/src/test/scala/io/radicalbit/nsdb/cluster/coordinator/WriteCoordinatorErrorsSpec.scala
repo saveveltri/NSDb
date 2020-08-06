@@ -116,10 +116,6 @@ class WriteCoordinatorErrorsSpec
   val record2 = Bit(System.currentTimeMillis, 2, Map("dimension2" -> "dimension2"), Map("tag2" -> "tag2"))
 
   override def beforeAll: Unit = {
-    Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(successfulCommitLogCoordinator, node1),
-                 10 seconds)
-    Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(failingCommitLogCoordinator, node2), 10 seconds)
-
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(node1MetricsDataActor, node1), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(node2MetricsDataActor, node2), 10 seconds)
 

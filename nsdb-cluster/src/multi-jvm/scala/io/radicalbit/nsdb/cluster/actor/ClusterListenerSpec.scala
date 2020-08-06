@@ -13,7 +13,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, NodeMetadataRemoved, RemoveNodeMetadataFailed}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{MetricsDataActorUnSubscribed, PublisherUnSubscribed}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
@@ -32,7 +32,6 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
     case AddLocations("failure", namespace, locations) =>
       sender() ! AddLocationsFailed("failure", namespace, locations)
     case UnsubscribeMetricsDataActor(nodeName)     => sender() ! MetricsDataActorUnSubscribed(nodeName)
-    case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case RemoveNodeMetadata(nodeName)              => sender() ! RemoveNodeMetadataFailed(nodeName)
     case _ =>
       log.warning("Unhandled message on purpose")
@@ -47,7 +46,6 @@ class ReadCoordinatorForTest extends Actor with ActorLogging {
 
 class WriteCoordinatorForTest extends Actor with ActorLogging {
   def receive: Receive = {
-    case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case UnSubscribePublisher(nodeName)            => sender() ! PublisherUnSubscribed(nodeName)
     case UnsubscribeMetricsDataActor(nodeName)     => sender() ! MetricsDataActorUnSubscribed(nodeName)
   }

@@ -133,9 +133,7 @@ class RetentionSpec
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, nodeName), 10 seconds)
     Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName), 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName), 10 seconds)
     Await.result(writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName), 10 seconds)
-    Await.result(writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName), 10 seconds)
 
     Await.result(writeCoordinator ? DropMetric(db, namespace, metricWithRetention), 10 seconds)
     Await.result(writeCoordinator ? DropMetric(db, namespace, metricWithoutRetention), 10 seconds)

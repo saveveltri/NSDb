@@ -146,7 +146,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
       log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
       log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
@@ -366,21 +365,10 @@ class MetadataCoordinator(clusterListener: ActorRef,
         log.info(s"subscribed data actor for node $nodeName")
       }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-        commitLogCoordinators += (nodeName -> actor)
-        log.info(s"subscribed commit log actor for node $nodeName")
-      }
-      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
-
     case UnsubscribeMetricsDataActor(nodeName) =>
       metricsDataActors -= nodeName
       log.info(s"metric data actor removed for node $nodeName")
       sender() ! MetricsDataActorUnSubscribed(nodeName)
-    case UnSubscribeCommitLogCoordinator(nodeName) =>
-      commitLogCoordinators -= nodeName
-      log.info(s"unsubscribed commit log actor for node $nodeName")
-      sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case GetDbs =>
       (metadataCache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]

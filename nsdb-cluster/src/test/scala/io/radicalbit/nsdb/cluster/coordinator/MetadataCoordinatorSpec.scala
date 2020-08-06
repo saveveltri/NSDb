@@ -82,7 +82,6 @@ class MetadataCoordinatorSpec
     val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
 
-    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"), 10 seconds)
     Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, "localhost"), 10 seconds)
 
     val nameRecord = Bit(0, 1, Map("name" -> "name"), Map("city" -> "milano"))

@@ -133,9 +133,6 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
     case GetMetricsDataActors =>
       log.debug("gossiping metric data actors from node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
-    case GetCommitLogCoordinators =>
-      log.debug("gossiping commit logs for node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
     case GetPublishers =>
       log.debug("gossiping publishers for node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeName))

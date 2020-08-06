@@ -40,11 +40,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.model.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
-  CommitLogCoordinatorUnSubscribed,
-  MetricsDataActorUnSubscribed,
-  PublisherUnSubscribed
-}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{MetricsDataActorUnSubscribed, PublisherUnSubscribed}
 import io.radicalbit.nsdb.util.{FileUtils, FutureRetryUtility}
 
 import scala.collection.mutable
@@ -132,15 +128,11 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
         s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
         .mapTo[NodeChildActorsGot]
       _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
-      _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
-        .mapTo[CommitLogCoordinatorUnSubscribed]
       _ <- (writeCoordinator ? UnSubscribePublisher(nodeName)).mapTo[PublisherUnSubscribed]
       _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(nodeName))
         .mapTo[MetricsDataActorUnSubscribed]
       _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(nodeName))
         .mapTo[MetricsDataActorUnSubscribed]
-      _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
-        .mapTo[CommitLogCoordinatorUnSubscribed]
       removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeName))
         .mapTo[RemoveNodeMetadataResponse]
     } yield removeNodeMetadataResponse)
