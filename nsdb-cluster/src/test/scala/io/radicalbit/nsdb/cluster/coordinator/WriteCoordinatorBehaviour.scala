@@ -69,6 +69,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
                                 TimeUnit.SECONDS) + 1.second
 
   lazy val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
+
   lazy val schemaCoordinator =
     TestActorRef[SchemaCoordinator](SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
   lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
