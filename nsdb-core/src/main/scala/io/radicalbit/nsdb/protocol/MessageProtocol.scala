@@ -48,6 +48,8 @@ object MessageProtocol {
         extends NSDbSerializable
     case class ExecuteStatement(selectStatement: SelectSQLStatement, timeContext: Option[TimeContext] = None)
         extends NSDbSerializable
+    case class ExecuteNotReducedStatement(selectStatement: SelectSQLStatement, timeContext: Option[TimeContext] = None)
+        extends NSDbSerializable
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
                                       locations: Seq[Location],

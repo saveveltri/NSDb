@@ -189,85 +189,101 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                                             MetricNotFound(statement.metric))
         }
         .pipeTo(sender())
+    case ExecuteNotReducedStatement(statement, context) =>
+//      implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
+//
+//      val schemaAndLocations: Future[(GetSchemaResponse, LocationsGot)] = for {
+//      schemaResponse <- (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric)).mapTo[GetSchemaResponse]
+//        locationsResponse <- (metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)).mapTo[LocationsGot]
+//      } yield (schemaResponse, locationsResponse)
+//
+//      schemaAndLocations.flatMap{
+//        case (SchemaGot(_, _, _, Some(schema)) , LocationsGot(_, _, _, locations)) =>
+//      }
+
     case ExecuteStatement(statement, context) =>
       val startTime                         = System.currentTimeMillis()
       implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
-      val selectStatementResponse: Future[ExecuteSelectStatementResponse] = Future
-        .sequence(
-          Seq(
-            schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),
-            metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
-          ))
-        .flatMap {
-          case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
-            log.debug("found schema {} and locations", schema, locations)
-            val filteredLocations: Seq[Location] =
-              ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 
-            val uniqueLocationsByNode: Map[String, Seq[Location]] =
-              readNodesSelection.getDistinctLocationsByNode(filteredLocations)
+      val schemaAndLocations: Future[(GetSchemaResponse, LocationsGot)] = for {
+        schemaResponse <- (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+          .mapTo[GetSchemaResponse]
+        locationsResponse <- (metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric))
+          .mapTo[LocationsGot]
+      } yield (schemaResponse, locationsResponse)
 
-            StatementParser.parseStatement(statement, schema) match {
-              case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode)(
-                  applyOrderingWithLimit(_, statement, schema))
+      val selectStatementResponse: Future[ExecuteSelectStatementResponse] =
+        schemaAndLocations
+          .flatMap {
+            case (SchemaGot(_, _, _, Some(schema)), LocationsGot(_, _, _, locations)) =>
+              log.debug("found schema {} and locations", schema, locations)
+              val filteredLocations: Seq[Location] =
+                ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 
-              case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
-                val distinctField = fields.head.name
+              val uniqueLocationsByNode: Map[String, Seq[Location]] =
+                readNodesSelection.getDistinctLocationsByNode(filteredLocations)
 
-                gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { bits =>
-                  Bit(
-                    timestamp = 0,
-                    value = NSDbNumericType(0),
-                    dimensions = retrieveField(bits, distinctField, (bit: Bit) => bit.dimensions),
-                    tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
-                  )
-                }.map(limitAndOrder(_, statement, schema))
+              StatementParser.parseStatement(statement, schema) match {
+                case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode)(
+                    applyOrderingWithLimit(_, statement, schema))
 
-              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode) { rawResults =>
-                  globalAggregationReduce(rawResults, fields, aggregations, statement, schema)
-                }
-              case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
-                  internalAggregationReduce(_, schema, aggregation)
-                ).map(limitAndOrder(_, statement, schema, Some(aggregation)))
+                case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+                  val distinctField = fields.head.name
 
-              case Right(
-                  ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
-                val sortedLocations = filteredLocations.sortBy(_.from)
-                val limitedLocations = gracePeriod.fold(sortedLocations)(gracePeriodInterval =>
-                  ReadNodesSelection.filterLocationsThroughGracePeriod(gracePeriodInterval, sortedLocations))
+                  gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { bits =>
+                    Bit(
+                      timestamp = 0,
+                      value = NSDbNumericType(0),
+                      dimensions = retrieveField(bits, distinctField, (bit: Bit) => bit.dimensions),
+                      tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
+                    )
+                  }.map(limitAndOrder(_, statement, schema))
 
-                val globalRanges: Seq[TimeRange] =
-                  if (limitedLocations.isEmpty) Seq.empty[TimeRange]
-                  else
-                    TimeRangeManager.computeRangesForIntervalAndCondition(limitedLocations.last.to,
-                                                                          limitedLocations.head.from,
-                                                                          rangeLength,
-                                                                          condition,
-                                                                          gracePeriod)
+                case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode) { rawResults =>
+                    globalAggregationReduce(rawResults, fields, aggregations, statement, schema)
+                  }
+                case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
+                  gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
+                    internalAggregationReduce(_, schema, aggregation)
+                  ).map(limitAndOrder(_, statement, schema, Some(aggregation)))
 
-                gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
-                  postProcessingTemporalQueryResult(schema, statement, aggregation))
+                case Right(
+                    ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
+                  val sortedLocations = filteredLocations.sortBy(_.from)
+                  val limitedLocations = gracePeriod.fold(sortedLocations)(gracePeriodInterval =>
+                    ReadNodesSelection.filterLocationsThroughGracePeriod(gracePeriodInterval, sortedLocations))
 
-              case Left(error) =>
-                Future(SelectStatementFailed(statement, error))
-              case _ =>
-                Future(SelectStatementFailed(statement, "Not a select statement."))
-            }
-          case _ =>
-            Future(
-              SelectStatementFailed(statement,
-                                    s"Metric ${statement.metric} does not exist ",
-                                    MetricNotFound(statement.metric)))
-        }
-        .recoverWith {
-          case t =>
-            log.error(t, s"Error in Execute Statement $statement")
-            Future(SelectStatementFailed(statement, "Generic error occurred"))
-        }
+                  val globalRanges: Seq[TimeRange] =
+                    if (limitedLocations.isEmpty) Seq.empty[TimeRange]
+                    else
+                      TimeRangeManager.computeRangesForIntervalAndCondition(limitedLocations.last.to,
+                                                                            limitedLocations.head.from,
+                                                                            rangeLength,
+                                                                            condition,
+                                                                            gracePeriod)
+
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
+                    postProcessingTemporalQueryResult(schema, statement, aggregation))
+
+                case Left(error) =>
+                  Future(SelectStatementFailed(statement, error))
+                case _ =>
+                  Future(SelectStatementFailed(statement, "Not a select statement."))
+              }
+            case _ =>
+              Future(
+                SelectStatementFailed(statement,
+                                      s"Metric ${statement.metric} does not exist ",
+                                      MetricNotFound(statement.metric)))
+          }
+          .recoverWith {
+            case t =>
+              log.error(t, s"Error in Execute Statement $statement")
+              Future(SelectStatementFailed(statement, "Generic error occurred"))
+          }
 
       selectStatementResponse.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
