@@ -105,12 +105,21 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
     Future
       .sequence(metricsDataActors.collect {
         case (nodeName, actor) if uniqueLocationsByNode.isDefinedAt(nodeName) =>
-          actor ? ExecuteSelectStatement(statement,
-                                         schema,
-                                         uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
-                                         ranges,
-                                         timeContext,
-                                         isSingleNode)
+          if (postProcFun != identity _)
+            actor ? ExecuteSelectStatement(statement,
+                                           schema,
+                                           uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
+                                           ranges,
+                                           timeContext,
+                                           isSingleNode)
+          else
+            actor ? ExecuteSelectStatement(statement,
+                                           schema,
+                                           uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
+                                           ranges,
+                                           timeContext,
+                                           isSingleNode)
+
       })
       .map { rawResponses =>
         log.debug("gathered {} from locations {}", rawResponses, uniqueLocationsByNode)
@@ -189,19 +198,21 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                                             MetricNotFound(statement.metric))
         }
         .pipeTo(sender())
-    case ExecuteNotReducedStatement(statement, context) =>
+    case ExecuteStatement(statement, context, false) =>
       implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
 
       val schemaAndLocations: Future[(GetSchemaResponse, LocationsGot)] = for {
-      schemaResponse <- (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric)).mapTo[GetSchemaResponse]
-        locationsResponse <- (metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)).mapTo[LocationsGot]
+        schemaResponse <- (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+          .mapTo[GetSchemaResponse]
+        locationsResponse <- (metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric))
+          .mapTo[LocationsGot]
       } yield (schemaResponse, locationsResponse)
 
-      schemaAndLocations.flatMap{
-        case (SchemaGot(_, _, _, Some(schema)) , LocationsGot(_, _, _, locations)) =>
+      schemaAndLocations.flatMap {
+        case (SchemaGot(_, _, _, Some(schema)), LocationsGot(_, _, _, locations)) =>
           StatementParser.parseStatement(statement, schema) match {
-            case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
-
+            case Right(
+                ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
               val filteredLocations: Seq[Location] =
                 ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 
@@ -213,29 +224,29 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                 if (limitedLocations.isEmpty) Seq.empty[TimeRange]
                 else
                   TimeRangeManager.computeRangesForIntervalAndCondition(limitedLocations.last.to,
-                    limitedLocations.head.from,
-                    rangeLength,
-                    condition,
-                    gracePeriod)
+                                                                        limitedLocations.head.from,
+                                                                        rangeLength,
+                                                                        condition,
+                                                                        gracePeriod)
 
               val uniqueLocationsByNode: Map[String, Seq[Location]] =
                 readNodesSelection.getDistinctLocationsByNode(filteredLocations)
 
-              gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
-                postProcessingTemporalQueryResult(schema, statement, aggregation))
+              gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(identity)
 
             case Right(_) =>
               Future(SelectStatementFailed(statement, ""))
             case Left(error) =>
               Future(SelectStatementFailed(statement, error))
           }
-        case _ => Future(
-          SelectStatementFailed(statement,
-            s"Metric ${statement.metric} does not exist ",
-            MetricNotFound(statement.metric)))
+        case _ =>
+          Future(
+            SelectStatementFailed(statement,
+                                  s"Metric ${statement.metric} does not exist ",
+                                  MetricNotFound(statement.metric)))
       }
 
-    case ExecuteStatement(statement, context) =>
+    case ExecuteStatement(statement, context, true) =>
       val startTime                         = System.currentTimeMillis()
       implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
@@ -301,9 +312,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                                                                             condition,
                                                                             gracePeriod)
 
-
                   gatherNodeResults(statement, schema, uniqueLimitedLocationsByNode, globalRanges)(
-                    postProcessingTemporalQueryResult(schema, statement, aggregation))
+                    reduceTemporalQueryResults(schema, statement, aggregation))
 
                 case Left(error) =>
                   Future(SelectStatementFailed(statement, error))

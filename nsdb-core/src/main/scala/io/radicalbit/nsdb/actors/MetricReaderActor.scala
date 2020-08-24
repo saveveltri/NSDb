@@ -265,7 +265,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _, timeContext, isSingleNode) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _, timeContext, isSingleNode, reduce) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema)(timeContext) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
@@ -315,7 +315,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             actorsForLocations(locations)
 
           gatherShardResults(statement, actors, msg)(
-            postProcessingTemporalQueryResult(schema, statement, aggregationType, isSingleNode)).pipeTo(sender)
+            reduceTemporalQueryResults(schema, statement, aggregationType, isSingleNode)).pipeTo(sender)
 
         case Left(error) => sender ! SelectStatementFailed(statement, error)
         case _           => sender ! SelectStatementFailed(statement, "Not a select statement.")

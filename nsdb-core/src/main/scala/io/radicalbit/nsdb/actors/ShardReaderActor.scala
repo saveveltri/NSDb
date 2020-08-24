@@ -127,7 +127,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       sender ! CountGot(db, namespace, metric, count)
     case ReceiveTimeout =>
       self ! PoisonPill
-    case ExecuteSelectStatement(statement, schema, _, globalRanges, timeContext, _) =>
+    case ExecuteSelectStatement(statement, schema, _, globalRanges, timeContext, _, _) =>
       log.debug("executing statement in metric shard reader actor {}", statement)
       val results: Try[Seq[Bit]] = StatementParser.parseStatement(statement, schema)(timeContext) match {
         case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>

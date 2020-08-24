@@ -46,16 +46,17 @@ object MessageProtocol {
 
     case class ValidateStatement(selectStatement: SelectSQLStatement, timeContext: Option[TimeContext] = None)
         extends NSDbSerializable
-    case class ExecuteStatement(selectStatement: SelectSQLStatement, timeContext: Option[TimeContext] = None)
-        extends NSDbSerializable
-    case class ExecuteNotReducedStatement(selectStatement: SelectSQLStatement, timeContext: Option[TimeContext] = None)
+    case class ExecuteStatement(selectStatement: SelectSQLStatement,
+                                timeContext: Option[TimeContext] = None,
+                                reduce: Boolean = true)
         extends NSDbSerializable
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
                                       locations: Seq[Location],
                                       ranges: Seq[TimeRange] = Seq.empty,
                                       timeContext: TimeContext,
-                                      isSingleNode: Boolean)
+                                      isSingleNode: Boolean,
+                                      reduce: Boolean = true)
         extends NSDbSerializable
 
     case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
