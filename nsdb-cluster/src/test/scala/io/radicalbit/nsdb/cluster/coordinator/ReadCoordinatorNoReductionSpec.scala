@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -40,7 +41,8 @@ class ReadCoordinatorNoReductionSpec extends AbstractTemporalReadCoordinatorSpec
                 distinct = false,
                 fields = AllFields(),
                 groupBy = None
-              )
+              ),
+              reduce = false
             )
           )
 
@@ -63,12 +65,46 @@ class ReadCoordinatorNoReductionSpec extends AbstractTemporalReadCoordinatorSpec
                 fields = AllFields(),
                 groupBy = Some(SimpleGroupByAggregation("name")),
                 limit = Some(LimitOperator(2))
-              )
+              ),
+              reduce = false
             )
           )
 
           probe.expectMsgType[SelectStatementFailed]
         }
+      }
+
+      "execute it successfully when count(*) is used instead of value" in {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
+              ),
+              reduce = false
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(10000, 1L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(40000, 1L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(70000, 1L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+        )
+
       }
 
     }
