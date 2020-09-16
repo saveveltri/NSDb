@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.cluster.logic.WriteConfig
 import io.radicalbit.nsdb.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeContext}
@@ -45,6 +45,8 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
+
+  private case object PerformRetry extends NSDbSerializable
 
   def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
     Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, mediator))
@@ -74,6 +76,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   log.info("WriteCoordinator is ready.")
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
+
+  lazy val consistencyLevel: Int =
+    context.system.settings.config.getInt("nsdb.cluster.consistency-level")
 
   override lazy val indexStorageStrategy: StorageStrategy =
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
@@ -415,6 +420,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
       val writeOperation = getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
         updateSchema(db, namespace, metric, bit) { schema =>
+
+          val consistentLocations = locations.take(consistencyLevel)
+          val eventualLocations   = locations.diff(consistentLocations)
+
           accumulateOperation(locations, db, namespace, metric, timeContext.currentTime, bit, schema)
         }
       }
