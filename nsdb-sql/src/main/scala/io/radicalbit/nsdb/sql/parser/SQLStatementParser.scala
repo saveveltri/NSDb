@@ -107,14 +107,14 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val temporalInterval  = "INTERVAL" ignoreCase
   private val since             = "SINCE" ignoreCase
 
-  private val letter          = """[a-zA-Z_]"""
+  
   private val digit           = """[0-9]"""
   private val letterOrDigit   = """[a-zA-Z0-9_]"""
   private val specialChar     = """[a-zA-Z0-9_\-\.:~]"""
   private val specialWildCard = """[a-zA-Z0-9_\-$\.:~]"""
 
-  private val standardString = s"""($letter$letterOrDigit*)""".r
-  private val specialString  = s"""($letter$specialChar*$letterOrDigit*)""".r
+  private val standardString = s"""($letterOrDigit*)""".r
+  private val specialString  = s"""($letterOrDigit$specialChar*$letterOrDigit*)""".r
   private val wildCardString = s"""($specialWildCard+)""".r
   private val digits         = s"""($digit+)""".r
   private val intValue       = digits ^^ { _.toInt }
@@ -125,7 +125,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
     Field(e, None)
   }
   private val aggField
-    : Parser[Field] = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (Distinct ?) ~ (standardString | All) <~ CloseRoundBracket ^? ({
+    : Parser[Field] = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (Distinct ?) ~ (All | standardString) <~ CloseRoundBracket ^? ({
     case CountAggregation ~ Some(_) ~ "*"  => Field("*", Some(CountDistinctAggregation("value")))
     case CountAggregation ~ Some(_) ~ name => Field(name, Some(CountDistinctAggregation(name)))
     case aggregation ~ None ~ "*"          => Field("*", Some(aggregation("value")))
@@ -174,7 +174,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   private val valueAssignment = (Val ~ Equal) ~> (doubleValue | longValue)
 
-  private val assignment = (dimension <~ Equal) ~ (stringValue | doubleValue | intValue) ^^ {
+  private val assignment = (dimension <~ Equal) ~ (doubleValue | intValue | stringValue) ^^ {
     case k ~ v => k -> NSDbType(v)
   }
 
