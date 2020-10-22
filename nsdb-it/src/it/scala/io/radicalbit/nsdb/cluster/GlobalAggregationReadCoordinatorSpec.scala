@@ -121,7 +121,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
 
         assert(readRes.reason == "")
         assert(readRes.records.size == 1)
-        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("count(distinct value)" -> 4L))))
+        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("count(distinct *)" -> 4L))))
       }
     }
   }
@@ -185,12 +185,12 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 6)
         assert(readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
-          Bit(1L,2L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct value)" -> 4L)),
-          Bit(2L,3L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct value)" -> 4L)),
-          Bit(4L,4L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct value)" -> 4L)),
-          Bit(6L,1L,Map(),Map("name" -> "Bill", "count(*)" -> 6L, "count(distinct value)" -> 4L)),
-          Bit(8L,1L,Map(),Map("name" -> "Frank", "count(*)" -> 6L, "count(distinct value)" -> 4L)),
-          Bit(10L,2L,Map(),Map("name" -> "Frankie", "count(*)" -> 6L, "count(distinct value)" -> 4L)),
+          Bit(1L,2L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(2L,3L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(4L,4L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(6L,1L,Map(),Map("name" -> "Bill", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(8L,1L,Map(),Map("name" -> "Frank", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(10L,2L,Map(),Map("name" -> "Frankie", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
         ))
       }
     }

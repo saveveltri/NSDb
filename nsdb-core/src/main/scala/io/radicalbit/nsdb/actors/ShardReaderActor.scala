@@ -116,7 +116,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         distinctPrimaryAggregations
           .collectFirst {
             case aggregation: CountDistinctAggregation =>
-              Try(index.uniqueValues(query, schema, groupField, aggregation.fieldName).flatMap(_.uniqueValues).toSet)
+              Try(
+                index
+                  .uniqueValues(query, schema, groupField, aggregation.concreteFieldName)
+                  .flatMap(_.uniqueValues)
+                  .toSet)
           }
           .getOrElse(Success(Set.empty[NSDbType]))
       }
@@ -208,7 +212,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                   _,
                                   _)) =>
           handleNoIndexResults(
-            Try(index.uniqueValues(q, schema, groupField, aggregation.fieldName))
+            Try(index.uniqueValues(q, schema, groupField, aggregation.concreteFieldName))
           )
         case Right(
             ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: SumAggregation), _, limit)) =>

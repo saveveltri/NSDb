@@ -202,7 +202,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountDistinctAggregation("value"))))
+                List(Field("*", Some(CountDistinctAggregation("*"))))
               )
             )
           )
@@ -211,7 +211,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit(0, 0L, Map.empty, Map("count(distinct value)" -> NSDbLongType(5L)))
+          Bit(0, 0L, Map.empty, Map("count(distinct *)" -> NSDbLongType(5L)))
         )
       }
 
