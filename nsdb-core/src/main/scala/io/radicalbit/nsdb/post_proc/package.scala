@@ -35,12 +35,12 @@ import scala.math.min
 
 package object post_proc {
 
-  final val `count(*)`          = "count(*)"
-  final val `count(distinct *)` = "count(distinct *)"
-  final val `sum(*)`            = "sum(*)"
-  final val `avg(*)`            = "avg(*)"
-  final val `min(*)`            = "min(*)"
-  final val `max(*)`            = "max(*)"
+  final val `count(*)` = "count(*)"
+//  final val `count(distinct *)` = "count(distinct *)"
+  final val `sum(*)` = "sum(*)"
+  final val `avg(*)` = "avg(*)"
+  final val `min(*)` = "min(*)"
+  final val `max(*)` = "max(*)"
 
   final val lowerBoundField = "lowerBound"
   final val upperBoundField = "upperBound"
@@ -368,10 +368,12 @@ package object post_proc {
 
     val uniqueValues = rawResults.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
 
-    val allAggregationReduce =
-      if (finalStep && uniqueValues.nonEmpty)
-        aggregationsReduced + (`count(distinct *)` -> NSDbLongType(uniqueValues.size))
-      else aggregationsReduced
+    //only one count distinct is allowed. This has been checked previously in the flow
+    val allAggregationReduce = aggregations.find(_.isInstanceOf[CountDistinctAggregation]) match {
+      case Some(aggregation) if finalStep =>
+        aggregationsReduced + (s"count(distinct ${aggregation.fieldName})" -> NSDbLongType(uniqueValues.size))
+      case None => aggregationsReduced
+    }
 
     val finalUniqueValues = if (finalStep) Set.empty[NSDbType] else uniqueValues
 
