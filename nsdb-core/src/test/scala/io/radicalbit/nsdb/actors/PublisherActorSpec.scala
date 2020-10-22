@@ -263,7 +263,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
+                                testTemporalAggregatedSqlStatement(CountAggregation("*")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -308,7 +308,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
+                                testTemporalAggregatedSqlStatement(CountAggregation("*")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -356,7 +356,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
+                                testTemporalAggregatedSqlStatement(CountAggregation("*")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -518,7 +518,7 @@ class PublisherActorSpec
         Bit(eventStartTime + 10,
             10L,
             Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> (eventStartTime + 1L)),
-            Map("count(*)"   -> 10L))
+            Map("count(value)"   -> 10L))
       )
 
       probe.expectNoMessage(1 seconds)
@@ -560,7 +560,7 @@ class PublisherActorSpec
             namespace = "namespace",
             metric = "metric",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
+            fields = ListFields(List(Field("value", Some(CountAggregation("*"))))),
             condition = Some(
               Condition(
                 ComparisonExpression(dimension = "timestamp",

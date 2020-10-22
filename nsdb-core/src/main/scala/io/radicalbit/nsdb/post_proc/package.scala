@@ -35,12 +35,13 @@ import scala.math.min
 
 package object post_proc {
 
-  final val `count(*)` = "count(*)"
-//  final val `count(distinct *)` = "count(distinct *)"
   final val `sum(*)` = "sum(*)"
   final val `avg(*)` = "avg(*)"
   final val `min(*)` = "min(*)"
   final val `max(*)` = "max(*)"
+
+  final def countLabel(field: String)         = s"count($field)"
+  final def countDistinctLabel(field: String) = s"count(distinct $field)"
 
   final val lowerBoundField = "lowerBound"
   final val upperBoundField = "upperBound"
@@ -225,9 +226,9 @@ package object post_proc {
           Map(upperBoundField -> NSDbNumericType(last.timestamp), lowerBoundField -> NSDbNumericType(head.timestamp))
         Some(
           temporalAggregation.aggregation match {
-            case _: CountAggregation =>
+            case aggregation: CountAggregation =>
               val count = NSDbLongType(bits.size)
-              Bit(last.timestamp, count, dimensions, Map(`count(*)` -> count))
+              Bit(last.timestamp, count, dimensions, Map(countLabel(aggregation.fieldName) -> count))
             case _: SumAggregation =>
               val sum = NSDbNumericType(bits.map(_.value.rawValue).sum)
               Bit(last.timestamp, sum, dimensions, Map(`sum(*)` -> sum))
@@ -343,24 +344,26 @@ package object post_proc {
     implicit val numeric: Numeric[Any] = v.numeric
 
     val aggregationsReduced = aggregations.foldLeft(Map.empty[String, NSDbNumericType]) {
-      case (acc, _: CountAggregation) =>
-        val unlimitedCount = rawResults.map(_.tags(`count(*)`).rawValue.asInstanceOf[Long]).sum
+      case (acc, aggregation: CountAggregation) =>
+        val label          = countLabel(aggregation.fieldName)
+        val unlimitedCount = rawResults.map(_.tags(label).rawValue.asInstanceOf[Long]).sum
         val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
-        acc + (`count(*)` -> NSDbNumericType(limitedCount))
+        acc + (label -> NSDbNumericType(limitedCount))
 
       case (acc, _: MinAggregation) =>
         val localMins = rawResults.flatMap(bit => bit.tags.get(`min(*)`).map(_.asInstanceOf[NSDbNumericType]))
         val globalMin = localMins.reduceLeftOption((local1, local2) => if (local1 <= local2) local1 else local2)
         globalMin.fold(acc)(globalMin => acc + (`min(*)` -> globalMin))
 
-      case (acc, _: AvgAggregation) =>
+      case (acc, aggregation: AvgAggregation) =>
+        val label = countLabel("*")
         val sum   = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
-        val count = NSDbNumericType(rawResults.flatMap(_.tags.get(`count(*)`).map(_.rawValue)).sum(BIGINT().numeric))
+        val count = NSDbNumericType(rawResults.flatMap(_.tags.get(label).map(_.rawValue)).sum(BIGINT().numeric))
         if (finalStep) {
           val avg = if (count.rawValue == numeric.zero) NSDbNumericType(numeric.zero) else NSDbNumericType(sum / count)
           acc + (`avg(*)` -> avg)
         } else {
-          acc + (`sum(*)` -> NSDbNumericType(sum)) + (`count(*)` -> NSDbNumericType(count))
+          acc + (`sum(*)` -> NSDbNumericType(sum)) + (label -> NSDbNumericType(count))
         }
 
       case (acc, _) => acc
@@ -380,7 +383,8 @@ package object post_proc {
     if (fields.nonEmpty) {
       applyOrderingWithLimit(
         rawResults.map { bit =>
-          bit.copy(tags = bit.tags - `sum(*)` - `count(*)` ++ allAggregationReduce, uniqueValues = finalUniqueValues)
+          bit.copy(tags = bit.tags - `sum(*)` - countLabel("*") - countLabel("") ++ allAggregationReduce,
+                   uniqueValues = finalUniqueValues)
         },
         statement,
         schema

@@ -93,8 +93,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         schema.tags.headOption.getOrElse(Schema.timestampField -> schema.timestamp))
       quantities <- distinctPrimaryAggregations
         .foldLeft(Try(Map.empty[String, NSDbNumericType])) {
-          case (tryAcc, _: CountAggregation) =>
-            tryAcc.map(acc => acc + (`count(*)` -> NSDbNumericType(index.getCount(query))))
+          case (tryAcc, aggregation: CountAggregation) =>
+            tryAcc.map(acc => acc + (countLabel(aggregation.fieldName) -> NSDbNumericType(index.getCount(query))))
           case (tryAcc, _: SumAggregation) =>
             tryAcc.map { acc =>
               val sum = facetIndexes
@@ -144,9 +144,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     }.distinct
 
     distinctPrimaryAggregations.collect {
-      case _: CountAggregation => `count(*)` -> NSDbNumericType(0L)
-      case _: SumAggregation   => `sum(*)`   -> NSDbNumericType(numeric.zero)
-      case _: MinAggregation   => `min(*)`   -> valueNumericType.MAX_VALUE
+      case aggregation: CountAggregation => countLabel(aggregation.fieldName) -> NSDbNumericType(0L)
+      case _: SumAggregation             => `sum(*)`                          -> NSDbNumericType(numeric.zero)
+      case _: MinAggregation             => `min(*)`                          -> valueNumericType.MAX_VALUE
     }.toMap
   }
 
