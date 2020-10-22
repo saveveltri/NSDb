@@ -264,7 +264,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                   .tags(groupTagName)
                   .indexType
                   .deserialize(new String(g.groupValue.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)),
-              uniqueValues.toSet
+              Map(aggregationField -> uniqueValues.toSet)
             )
           }
         }

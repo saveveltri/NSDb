@@ -53,13 +53,13 @@ trait TimeSeriesRecord {
   * @param timestamp  record timestamp.
   * @param value      record value.
   * @param dimensions record dimensions.
-  * @param uniqueValues Set containing all the unique values gathered from a count distinct.
+  * @param uniqueValues Map containing the unique values gathered from a count distinct grouped by field name.
   */
 case class Bit(timestamp: Long,
                value: NSDbNumericType,
                dimensions: Map[String, NSDbType],
                tags: Map[String, NSDbType],
-               uniqueValues: Set[NSDbType] = Set.empty)
+               uniqueValues: Map[String, Set[NSDbType]] = Map.empty)
     extends TimeSeriesRecord {
 
   /**

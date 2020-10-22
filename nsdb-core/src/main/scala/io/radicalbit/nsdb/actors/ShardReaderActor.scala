@@ -113,15 +113,18 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           case (tryAcc, _) => tryAcc
         }
       uniqueValues <- {
-        distinctPrimaryAggregations
-          .collectFirst {
+        Try {
+          distinctPrimaryAggregations.flatMap {
             case aggregation: CountDistinctAggregation =>
-              Try(index.uniqueValues(query, schema, groupField, aggregation.fieldName).flatMap(_.uniqueValues).toSet)
-          }
-          .getOrElse(Success(Set.empty[NSDbType]))
+              index
+                .uniqueValues(query, schema, groupField, aggregation.fieldName)
+                .flatMap(_.uniqueValues)
+            case _ => Seq.empty
+          }.toMap
+        }
       }
     } yield PrimaryAggregationResults(quantities, uniqueValues)).recoverWith {
-      case _: IndexNotFoundException => Success(PrimaryAggregationResults(Map.empty, Set.empty))
+      case _: IndexNotFoundException => Success(PrimaryAggregationResults(Map.empty, Map.empty[String, Set[NSDbType]]))
     }
   }
 
@@ -306,7 +309,8 @@ object ShardReaderActor {
     * @param quantities single quantities (count, sum etc.).
     * @param uniqueValues unique values that will be used for count distinct calculation.
     */
-  case class PrimaryAggregationResults(quantities: Map[String, NSDbNumericType], uniqueValues: Set[NSDbType])
+  case class PrimaryAggregationResults(quantities: Map[String, NSDbNumericType],
+                                       uniqueValues: Map[String, Set[NSDbType]])
 
   def props(basePath: String, db: String, namespace: String, location: Location): Props =
     Props(new ShardReaderActor(basePath, db, namespace, location))
