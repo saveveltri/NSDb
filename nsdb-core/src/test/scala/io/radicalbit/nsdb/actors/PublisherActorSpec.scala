@@ -517,8 +517,8 @@ class PublisherActorSpec
       recordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             10L,
-            Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> (eventStartTime + 1L)),
-            Map("count(value)"   -> 10L))
+            Map("upperBound"   -> (eventStartTime + 10L), "lowerBound" -> (eventStartTime + 1L)),
+            Map("count(value)" -> 10L))
       )
 
       probe.expectNoMessage(1 seconds)
