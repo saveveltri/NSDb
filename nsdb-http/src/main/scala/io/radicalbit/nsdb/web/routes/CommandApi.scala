@@ -24,6 +24,7 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.model.MetricInfo
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -58,7 +59,7 @@ trait CommandApi {
   case class ShowNamespacesResponse(namespaces: Set[String]) extends CommandResponse
   case class ShowMetricsResponse(metrics: Set[String])       extends CommandResponse
   case class Field(name: String, `type`: String)
-  case class DescribeMetricResponse(fields: Set[Field], metricInfo: Option[MetricInfo]) extends CommandResponse
+  case class DescribeMetricResponse(schema: Option[Schema], metricInfo: Option[MetricInfo]) extends CommandResponse
 
   @Api(value = "/dbs", produces = "application/json")
   @Path("/dbs")
@@ -243,13 +244,7 @@ trait CommandApi {
                         HttpEntity(
                           ContentTypes.`application/json`,
                           write(
-                            DescribeMetricResponse(
-                              schema.fieldsMap.map {
-                                case (_, field) =>
-                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                              }.toSet,
-                              metricInfo
-                            )
+                            DescribeMetricResponse(Some(schema), metricInfo)
                           )
                         )
                       )
@@ -258,16 +253,7 @@ trait CommandApi {
                         HttpEntity(
                           ContentTypes.`application/json`,
                           write(
-                            DescribeMetricResponse(
-                              schemaOpt
-                                .map(s =>
-                                  s.fieldsMap.map {
-                                    case (_, field) =>
-                                      Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                                  }.toSet)
-                                .getOrElse(Set.empty),
-                              Some(metricInfo)
-                            )
+                            DescribeMetricResponse(schemaOpt, Some(metricInfo))
                           )
                         )
                       )

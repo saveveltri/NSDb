@@ -107,25 +107,14 @@ class CommandApiTest extends NSDbFlatSpec with ScalatestRouteTest with CommandAp
     Get("/commands/db1/namespace1/metricWithoutInfo").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
-      entity shouldBe write(
-        DescribeMetricResponse(
-          schemas("metricWithoutInfo").fieldsMap.map {
-            case (_, field) => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-          }.toSet,
-          None
-        ))
+      entity shouldBe write(DescribeMetricResponse(schemas.get("metricWithoutInfo"), None))
     }
 
     Get("/commands/db1/namespace1/metric1").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
       entity shouldBe write(
-        DescribeMetricResponse(
-          schemas("metric1").fieldsMap.map {
-            case (_, field) => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-          }.toSet,
-          Some(MetricInfo("db1", "namespace1", "metric1", 100, 100))
-        ))
+        DescribeMetricResponse(schemas.get("metric1"), Some(MetricInfo("db1", "namespace1", "metric1", 100, 100))))
     }
   }
 
@@ -134,10 +123,7 @@ class CommandApiTest extends NSDbFlatSpec with ScalatestRouteTest with CommandAp
       status shouldBe OK
       val entity = entityAs[String]
       entity shouldBe write(
-        DescribeMetricResponse(
-          Set.empty,
-          Some(MetricInfo("db1", "namespace1", "metricWithoutSchema", 100, 100))
-        ))
+        DescribeMetricResponse(None, Some(MetricInfo("db1", "namespace1", "metricWithoutSchema", 100, 100))))
     }
   }
 

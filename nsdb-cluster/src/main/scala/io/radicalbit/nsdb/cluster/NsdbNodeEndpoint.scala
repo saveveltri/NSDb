@@ -21,7 +21,7 @@ import akka.event.{Logging, LoggingAdapter}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.security.NsdbSecurity
-import io.radicalbit.nsdb.web.{BitSerializer, CustomSerializers, WebResources}
+import io.radicalbit.nsdb.web.{BitSerializer, CustomSerializers, SchemaSerializer, WebResources}
 import org.json4s.{DefaultFormats, Formats}
 
 /**
@@ -44,7 +44,8 @@ class NsdbNodeEndpoint(nodeId: String,
                    writeCoordinator = writeCoordinator,
                    metadataCoordinator = metadataCoordinator)
 
-  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers + BitSerializer
+  implicit val formats
+    : Formats = DefaultFormats ++ CustomSerializers.customSerializers + BitSerializer + SchemaSerializer
 
   initWebEndpoint(nodeId, writeCoordinator, readCoordinator, metadataCoordinator, publisher)
 
