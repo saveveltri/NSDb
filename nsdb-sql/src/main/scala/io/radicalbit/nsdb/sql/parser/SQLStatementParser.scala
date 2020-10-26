@@ -107,19 +107,19 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val temporalInterval  = "INTERVAL" ignoreCase
   private val since             = "SINCE" ignoreCase
 
-  
-  private val digit           = """[0-9]"""
-  private val letterOrDigit   = """[a-zA-Z0-9_]"""
-  private val specialChar     = """[a-zA-Z0-9_\-\.:~]"""
-  private val specialWildCard = """[a-zA-Z0-9_\-$\.:~]"""
+  private val digit            = """[0-9]"""
+  private val letterOrDigit    = """[a-zA-Z0-9_]"""
+  private val specialChar      = """[a-zA-Z0-9_\-\.:~]"""
+  private val specialWildCard  = """[a-zA-Z0-9_\-$\.:~]"""
+  private val doubleExpression = s"""($digit+)[.]($digit+)"""
 
   private val standardString = s"""($letterOrDigit*)""".r
   private val specialString  = s"""($letterOrDigit$specialChar*$letterOrDigit*)""".r
   private val wildCardString = s"""($specialWildCard+)""".r
-  private val digits         = s"""($digit+)""".r
-  private val intValue       = digits ^^ { _.toInt }
-  private val longValue      = digits ^^ { _.toLong }
-  private val doubleValue    = s"""($digit+)[.]($digit+)""".r ^^ { _.toDouble }
+  private val digits         = s"""($digit+)"""
+  private val intValue       = digits.r ^^ { _.toInt }
+  private val longValue      = digits.r ^^ { _.toLong }
+  private val doubleValue    = doubleExpression ^^ { _.toDouble }
 
   private val field = standardString ^^ { e =>
     Field(e, None)
@@ -136,6 +136,13 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val stringValue = (specialString | (("'" ?) ~> (specialString +) <~ ("'" ?))) ^^ {
     case string: String        => string
     case strings: List[String] => strings.mkString(" ")
+  }
+
+  private val stringOrNumberValue = (specialString | (("'" ?) ~> (specialString +) <~ ("'" ?))) ^^ {
+    case value: String if value.matches(digits)           => NSDbType(value.toLong)
+    case value: String if value.matches(doubleExpression) => NSDbType(value.toDouble)
+    case value: String                                    => NSDbType(value)
+    case strings: List[String]                            => NSDbType(strings.mkString(" "))
   }
 
   private val stringValueWithWildcards = (wildCardString | (("'" ?) ~> (wildCardString +) <~ ("'" ?))) ^^ {
@@ -208,7 +215,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val orTupledLogicalExpression: PackratParser[TupledLogicalExpression] = tupledLogicalExpression(Or, OrOperator)
 
-  lazy val equalityExpression: PackratParser[EqualityExpression] = (dimension <~ Equal) ~ (comparisonTerm | stringValue
+  lazy val equalityExpression
+    : PackratParser[EqualityExpression] = (dimension <~ Equal) ~ (comparisonTerm | stringOrNumberValue
     .map(n => AbsoluteComparisonValue(n))) ^^ {
     case dim ~ v => EqualityExpression(dim, v)
   }

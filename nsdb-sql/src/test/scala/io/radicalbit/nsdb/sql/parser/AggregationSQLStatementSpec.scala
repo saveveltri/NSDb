@@ -382,6 +382,30 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select containing string starting with a digit" should {
+      "parse it successfully" in {
+        val query =
+          "select count(value) from people where name = 7bb5487c-bf83-49be-8133-df3ac2d321d4 group by surname"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
+              condition = Some(
+                Condition(
+                  EqualityExpression(dimension = "name",
+                                     value = AbsoluteComparisonValue("7bb5487c-bf83-49be-8133-df3ac2d321d4")),
+                )),
+              groupBy = Some(SimpleGroupByAggregation("surname"))
+            )
+          ))
+      }
+    }
+
     "receive a select containing uuids and more than 2 where" should {
       "parse it successfully" in {
         val query =
