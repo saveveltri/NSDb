@@ -53,15 +53,15 @@ class FacetRangeIndex {
     val facets: Facets = (aggregation, valueFieldType) match {
       case (_: CountAggregation, _) =>
         new LongRangeFacetCounts(rangeFieldName, fc, luceneRanges: _*)
-      case (_: SumAggregation, Some(_: DECIMAL)) =>
+      case (_: SumAggregation, Some(DECIMAL)) =>
         new LongRangeFacetDoubleSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
       case (_: SumAggregation, _) =>
         new LongRangeFacetLongSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
-      case (_: MaxAggregation, Some(_: DECIMAL)) =>
+      case (_: MaxAggregation, Some(DECIMAL)) =>
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
       case (_: MaxAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
-      case (_: MinAggregation, Some(_: DECIMAL)) =>
+      case (_: MinAggregation, Some(DECIMAL)) =>
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
       case (_: MinAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
@@ -81,7 +81,7 @@ class FacetRangeIndex {
         Bit(
           facetResult.upperBound,
           valueFieldType.fold(NSDbNumericType(facetResult.value.longValue())) { typez =>
-            if (typez.isInstanceOf[DECIMAL])
+            if (typez == DECIMAL)
               NSDbNumericType(facetResult.value.doubleValue())
             else NSDbNumericType(facetResult.value.longValue())
           },

@@ -69,7 +69,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
 
       def assert(fieldName: String, limit: Int, expectedCountSize: Int, expectedSizeDistinct: Int): Assertion = {
         val groups =
-          facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+          facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR)
         val distinct = facetIndexes.executeDistinctFieldCountIndex(new MatchAllDocsQuery(), fieldName, None)
 
         groups.size shouldBe expectedCountSize
@@ -94,7 +94,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
     writer.close()
 
     val actualResult =
-      facetIndexes.executeSumAndCountFacet(new MatchAllDocsQuery(), "tag", None, VARCHAR(), DECIMAL())
+      facetIndexes.executeSumAndCountFacet(new MatchAllDocsQuery(), "tag", None, VARCHAR, DECIMAL)
 
     val expectedResult = List(
       Bit(0,
@@ -145,11 +145,11 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
 
     def assert(fieldName: String, limit: Int, expectedCountSize: Int): Assertion = {
       val contentGroups =
-        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR)
       contentGroups.size shouldBe expectedCountSize
 
       val nameGroups =
-        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR)
       nameGroups.size shouldBe expectedCountSize
     }
   }
@@ -168,7 +168,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
     writer.close()
 
     val contentGroups =
-      facetIndexes.executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, Some(100), VARCHAR())
+      facetIndexes.executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, Some(100), VARCHAR)
     contentGroups.size shouldBe 50
 
     assert(fieldName = "name", limit = 100, expectedCountSize = 0)
@@ -176,7 +176,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
 
     def assert(fieldName: String, limit: Int, expectedCountSize: Int): Assertion = {
       val nameGroups =
-        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR)
       nameGroups.size shouldBe expectedCountSize
     }
   }
@@ -195,8 +195,8 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR()).size shouldBe 0
-    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 100
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR).size shouldBe 0
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR).size shouldBe 100
 
     val deleteWriter = facetIndexes.getIndexWriter
 
@@ -209,7 +209,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
     deleteWriter.close()
     facetIndexes.refresh()
 
-    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 99
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR).size shouldBe 99
   }
 
   "supports ordering and limiting on count and sum" in {
@@ -233,20 +233,20 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
     facetIndexes
-      .executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "dimension", Some(descSort), Some(100), VARCHAR())
+      .executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "dimension", Some(descSort), Some(100), VARCHAR)
       .size shouldBe 0
-    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "name", None, Some(50), VARCHAR()).size shouldBe 0
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "name", None, Some(50), VARCHAR).size shouldBe 0
 
     facetIndexes
-      .executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR())
+      .executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR)
       .size shouldBe 13
 
     val res = facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50),
                                            "tag",
                                            Some(descSort),
                                            Some(100),
-                                           VARCHAR(),
-                                           INT())
+                                           VARCHAR,
+                                           INT)
     res.size shouldBe 12
     res.foreach { bit =>
       bit.tags.headOption match {
@@ -257,13 +257,13 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
     }
 
     val surnameGroups =
-      facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(50), VARCHAR())
+      facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(50), VARCHAR)
     surnameGroups.size shouldBe 26
     surnameGroups.head.value.rawValue shouldBe 4
     surnameGroups.last.value.rawValue shouldBe 1
 
     val cityGroups =
-      facetIndexes.executeSumFacet(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), INT())
+      facetIndexes.executeSumFacet(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR, INT)
     cityGroups.size shouldBe 1
     cityGroups.head.value.rawValue shouldBe 1225
   }
@@ -289,8 +289,8 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
                                             "tag",
                                             Some(descSort),
                                             Some(100),
-                                            VARCHAR(),
-                                            BIGINT())
+                                            VARCHAR,
+                                            BIGINT)
 
     res1.size shouldBe 1
     res1.head.value.rawValue shouldBe 200
@@ -299,8 +299,8 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
                                             "tag",
                                             Some(descSort),
                                             Some(100),
-                                            VARCHAR(),
-                                            BIGINT())
+                                            VARCHAR,
+                                            BIGINT)
     res2.size shouldBe 1
     res2.head.value.rawValue shouldBe 100
   }
@@ -324,7 +324,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
     writer.close()
 
     val res =
-      facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR(), DECIMAL())
+      facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR, DECIMAL)
     res.size shouldBe 6
     res.foreach { bit =>
       bit.tags.headOption match {

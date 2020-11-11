@@ -143,14 +143,14 @@ class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMult
           expectMsg(
             SchemaGot(
               "testDb", "testNamespace", "people",
-              Some(Schema("people", dummyBit(DECIMAL())))
+              Some(Schema("people", dummyBit(DECIMAL)))
             ))
 
           schemaCoordinator ! GetSchema("testDb", "testNamespace", "animals")
           expectMsg(
             SchemaGot(
               "testDb", "testNamespace", "animals",
-              Some(Schema("animals", dummyBit(BIGINT())))
+              Some(Schema("animals", dummyBit(BIGINT)))
             ))
         }
 
@@ -159,7 +159,7 @@ class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMult
           expectMsg(
             SchemaGot(
               "testDb", "testNamespace2", "animals",
-              Some(Schema("animals", dummyBit(BIGINT())))
+              Some(Schema("animals", dummyBit(BIGINT)))
             ))
         }
 
@@ -168,7 +168,7 @@ class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMult
           expectMsg(
             SchemaGot(
               "testDbWithInfo", "testNamespaceWithInfo", "people",
-              Some(Schema("people", dummyBit(BIGINT())))
+              Some(Schema("people", dummyBit(BIGINT)))
             ))
         }
       }

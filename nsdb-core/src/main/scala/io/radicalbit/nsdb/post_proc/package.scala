@@ -308,7 +308,7 @@ package object post_proc {
       case _: LastAggregation  => bits.maxBy(_.timestamp)
       case _: AvgAggregation if finalStep =>
         val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
-        val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
+        val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT.numeric))
         val avg   = NSDbNumericType(sum / count)
         Bit(
           0L,
@@ -324,7 +324,7 @@ package object post_proc {
           Map(
             standardAggregation.groupField -> bits.flatMap(_.tags.get(standardAggregation.groupField)).head,
             "sum"                          -> NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum),
-            "count"                        -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
+            "count"                        -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT.numeric))
           )
         )
     }
@@ -362,7 +362,7 @@ package object post_proc {
 
       case (acc, _: AvgAggregation) =>
         val sum   = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
-        val count = NSDbNumericType(rawResults.flatMap(_.tags.get(`count(*)`).map(_.rawValue)).sum(BIGINT().numeric))
+        val count = NSDbNumericType(rawResults.flatMap(_.tags.get(`count(*)`).map(_.rawValue)).sum(BIGINT.numeric))
         if (finalStep) {
           val avg = if (count.rawValue == numeric.zero) NSDbNumericType(numeric.zero) else NSDbNumericType(sum / count)
           acc + (`avg(*)` -> avg)

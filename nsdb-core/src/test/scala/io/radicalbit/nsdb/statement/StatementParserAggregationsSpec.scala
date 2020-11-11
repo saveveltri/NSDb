@@ -433,7 +433,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
       }
     }
 
-    "receive a group by on a tag of type different from VARCHAR()" should {
+    "receive a group by on a tag of type different from VARCHAR" should {
       "succeed" in {
         StatementParser.parseStatement(
           SelectSQLStatement(

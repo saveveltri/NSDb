@@ -53,7 +53,7 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
   override protected[index] def internalResult(query: Query,
                                                groupField: String,
                                                sort: Option[Sort],
-                                               valueIndexType: IndexType[_] = BIGINT()): Option[FacetResult] = {
+                                               valueIndexType: IndexType[_] = BIGINT): Option[FacetResult] = {
     val c = new FacetsConfig
     c.setIndexFieldName(groupField, facetName(groupField))
 

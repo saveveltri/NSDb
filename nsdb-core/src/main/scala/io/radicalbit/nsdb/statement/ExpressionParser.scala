@@ -65,14 +65,14 @@ object ExpressionParser {
 
   private def nullableExpression(schema: Map[String, SchemaField], field: String): Either[String, BooleanQuery] = {
     val query = schema.get(field) match {
-      case Some(SchemaField(_, _, INT())) =>
+      case Some(SchemaField(_, _, INT)) =>
         Right(IntPoint.newRangeQuery(field, Int.MinValue, Int.MaxValue))
-      case Some(SchemaField(_, _, BIGINT())) =>
+      case Some(SchemaField(_, _, BIGINT)) =>
         Right(LongPoint.newRangeQuery(field, Long.MinValue, Long.MaxValue))
-      case Some(SchemaField(_, _, DECIMAL())) =>
+      case Some(SchemaField(_, _, DECIMAL)) =>
         Right(DoublePoint.newRangeQuery(field, Double.MinValue, Double.MaxValue))
-      case Some(SchemaField(_, _, VARCHAR())) => Right(new WildcardQuery(new Term(field, "*")))
-      case None                               => Left(StatementParserErrors.notExistingField(field))
+      case Some(SchemaField(_, _, VARCHAR)) => Right(new WildcardQuery(new Term(field, "*")))
+      case None                             => Left(StatementParserErrors.notExistingField(field))
     }
     // Used to apply negation due to the fact Lucene does not support nullable fields, query the values' range and apply negation
     query.map { qq =>
@@ -86,24 +86,24 @@ object ExpressionParser {
                                  field: String,
                                  value: NSDbType): Either[String, Query] = {
     schema.get(field) match {
-      case Some(SchemaField(_, _, t: INT)) =>
-        Try(IntPoint.newExactQuery(field, t.cast(value.rawValue))) match {
+      case Some(SchemaField(_, _, INT)) =>
+        Try(IntPoint.newExactQuery(field, INT.cast(value.rawValue))) match {
           case Success(q) => Right(q)
           case _ =>
             Left(StatementParserErrors.nonCompatibleOperator("equality", "INT"))
         }
-      case Some(SchemaField(_, _, t: BIGINT)) =>
-        Try(LongPoint.newExactQuery(field, t.cast(value.rawValue))) match {
+      case Some(SchemaField(_, _, BIGINT)) =>
+        Try(LongPoint.newExactQuery(field, BIGINT.cast(value.rawValue))) match {
           case Success(q) => Right(q)
           case _          => Left(StatementParserErrors.nonCompatibleOperator("equality", "BIGINT"))
         }
-      case Some(SchemaField(_, _, t: DECIMAL)) =>
-        Try(DoublePoint.newExactQuery(field, t.cast(value.rawValue))) match {
+      case Some(SchemaField(_, _, DECIMAL)) =>
+        Try(DoublePoint.newExactQuery(field, DECIMAL.cast(value.rawValue))) match {
           case Success(q) => Right(q)
           case _          => Left(StatementParserErrors.nonCompatibleOperator("equality", "DECIMAL"))
         }
-      case Some(SchemaField(_, _, _: VARCHAR)) => Right(new TermQuery(new Term(field, value.rawValue.toString)))
-      case None                                => Left(StatementParserErrors.notExistingField(field))
+      case Some(SchemaField(_, _, VARCHAR)) => Right(new TermQuery(new Term(field, value.rawValue.toString)))
+      case None                             => Left(StatementParserErrors.notExistingField(field))
     }
   }
 
@@ -111,7 +111,7 @@ object ExpressionParser {
                              field: String,
                              value: NSDbType): Either[String, Query] = {
     schema.get(field) match {
-      case Some(SchemaField(_, _, _: VARCHAR)) =>
+      case Some(SchemaField(_, _, VARCHAR)) =>
         Right(new WildcardQuery(new Term(field, value.rawValue.toString.replaceAll("\\$", "*").replace("?", "\\?"))))
       case Some(_) =>
         Left(StatementParserErrors.nonCompatibleOperator("Like", "VARCHAR"))
@@ -137,21 +137,21 @@ object ExpressionParser {
       }
 
     (schema.get(field), value.rawValue) match {
-      case (Some(SchemaField(_, _, t: INT)), v) =>
-        Try(t.cast(v)).map(v =>
+      case (Some(SchemaField(_, _, INT)), v) =>
+        Try(INT.cast(v)).map(v =>
           buildRangeQuery[Int](IntPoint.newRangeQuery, v + 1, v - 1, Int.MinValue, Int.MaxValue, v)) match {
           case Success(q) => Right(q)
           case _          => Left(StatementParserErrors.nonCompatibleOperator("range", "INT"))
         }
-      case (Some(SchemaField(_, _, t: BIGINT)), v) =>
-        Try(t.cast(v)).map(v =>
+      case (Some(SchemaField(_, _, BIGINT)), v) =>
+        Try(BIGINT.cast(v)).map(v =>
           buildRangeQuery[Long](LongPoint.newRangeQuery, v + 1, v - 1, Long.MinValue, Long.MaxValue, v)) match {
           case Success(q) => Right(q)
           case _ =>
             Left(StatementParserErrors.nonCompatibleOperator("range", "BIGINT"))
         }
-      case (Some(SchemaField(_, _, t: DECIMAL)), v) =>
-        Try(t.cast(v)).map(
+      case (Some(SchemaField(_, _, DECIMAL)), v) =>
+        Try(DECIMAL.cast(v)).map(
           v =>
             buildRangeQuery[Double](DoublePoint.newRangeQuery,
                                     Math.nextAfter(v, Double.MaxValue),
@@ -173,30 +173,30 @@ object ExpressionParser {
                               p1: NSDbType,
                               p2: NSDbType): Either[String, Query] = {
     (schema.get(field), p1.rawValue, p2.rawValue) match {
-      case (Some(SchemaField(_, _, t: BIGINT)), v1, v2) =>
-        Try((t.cast(v1), t.cast(v2))).map {
+      case (Some(SchemaField(_, _, BIGINT)), v1, v2) =>
+        Try((BIGINT.cast(v1), BIGINT.cast(v2))).map {
           case (l, h) => LongPoint.newRangeQuery(field, l, h)
         } match {
           case Success(q) => Right(q)
           case _ =>
             Left(StatementParserErrors.nonCompatibleOperator("range", "BIGINT"))
         }
-      case (Some(SchemaField(_, _, t: INT)), v1, v2) =>
-        Try((t.cast(v1), t.cast(v2))).map {
+      case (Some(SchemaField(_, _, INT)), v1, v2) =>
+        Try((INT.cast(v1), INT.cast(v2))).map {
           case (l, h) => IntPoint.newRangeQuery(field, l, h)
         } match {
           case Success(q) => Right(q)
           case _          => Left(StatementParserErrors.nonCompatibleOperator("range", "INT"))
         }
-      case (Some(SchemaField(_, _, t: DECIMAL)), v1, v2) =>
-        Try((t.cast(v1), t.cast(v2))).map {
+      case (Some(SchemaField(_, _, DECIMAL)), v1, v2) =>
+        Try((DECIMAL.cast(v1), DECIMAL.cast(v2))).map {
           case (l, h) => DoublePoint.newRangeQuery(field, l, h)
         } match {
           case Success(q) => Right(q)
           case _ =>
             Left(StatementParserErrors.nonCompatibleOperator("range", "DECIMAL"))
         }
-      case (Some(SchemaField(_, _, _: VARCHAR)), _, _) =>
+      case (Some(SchemaField(_, _, VARCHAR)), _, _) =>
         Left(StatementParserErrors.nonCompatibleOperator("range", "numerical"))
       case (None, _, _) => Left(StatementParserErrors.notExistingField(field))
     }

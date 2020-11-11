@@ -62,7 +62,7 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         CountAggregation("value"),
                                         "timestamp",
                                         "value",
-                                        Some(BIGINT()),
+                                        Some(BIGINT),
                                         ranges) shouldBe Seq(
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
@@ -99,7 +99,7 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         CountAggregation("value"),
                                         "timestamp",
                                         "value",
-                                        Some(BIGINT()),
+                                        Some(BIGINT),
                                         ranges) shouldBe Seq(
         Bit(10, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
@@ -136,7 +136,7 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         CountAggregation("value"),
                                         "timestamp",
                                         "value",
-                                        Some(BIGINT()),
+                                        Some(BIGINT),
                                         ranges) shouldBe Seq(
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(20, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
@@ -174,7 +174,7 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         CountAggregation("value"),
                                         "timestamp",
                                         "value",
-                                        Some(BIGINT()),
+                                        Some(BIGINT),
                                         ranges) shouldBe Seq(
         Bit(10, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
@@ -213,7 +213,7 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         CountAggregation("value"),
                                         "timestamp",
                                         "value",
-                                        Some(BIGINT()),
+                                        Some(BIGINT),
                                         ranges) shouldBe Seq(
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),

@@ -239,7 +239,7 @@ class StatementParserSpec extends NSDbSpec {
             ))
         )
       }
-      "parse it successfully on a DECIMAL() vs a int" in {
+      "parse it successfully on a DECIMAL vs a int" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -263,7 +263,7 @@ class StatementParserSpec extends NSDbSpec {
             ))
         )
       }
-      "fail on a int vs a DECIMAL()" in {
+      "fail on a int vs a DECIMAL" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -333,7 +333,7 @@ class StatementParserSpec extends NSDbSpec {
             ))
         )
       }
-      "parse it successfully on a DECIMAL() vs a int" in {
+      "parse it successfully on a DECIMAL vs a int" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -361,7 +361,7 @@ class StatementParserSpec extends NSDbSpec {
             ))
         )
       }
-      "fail on a int vs a DECIMAL()" in {
+      "fail on a int vs a DECIMAL" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -723,7 +723,7 @@ class StatementParserSpec extends NSDbSpec {
         )
       }
     }
-    "receive a select containing a not nullable expression on DECIMAL()" should {
+    "receive a select containing a not nullable expression on DECIMAL" should {
       "parse it successfully" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
@@ -759,7 +759,7 @@ class StatementParserSpec extends NSDbSpec {
         )
       }
     }
-    "receive a select containing a nullable expression on DECIMAL()" should {
+    "receive a select containing a nullable expression on DECIMAL" should {
       "parse it successfully" in {
         StatementParser.parseStatement(
           SelectSQLStatement(

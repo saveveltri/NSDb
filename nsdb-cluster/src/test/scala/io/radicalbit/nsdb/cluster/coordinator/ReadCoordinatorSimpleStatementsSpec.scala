@@ -170,10 +170,10 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
 
           expected.schema.get.fieldsMap.values.toSeq.sortBy(_.name) shouldBe
             Seq(
-              SchemaField("name", TagFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-              SchemaField("value", ValueFieldType, BIGINT())
+              SchemaField("name", TagFieldType, VARCHAR),
+              SchemaField("surname", DimensionFieldType, VARCHAR),
+              SchemaField("timestamp", TimestampFieldType, BIGINT),
+              SchemaField("value", ValueFieldType, BIGINT)
             )
         }
 
@@ -187,10 +187,10 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
 
           expected.schema.get.fieldsMap.values.toSeq.sortBy(_.name) shouldBe
             Seq(
-              SchemaField("name", TagFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-              SchemaField("value", ValueFieldType, DECIMAL())
+              SchemaField("name", TagFieldType, VARCHAR),
+              SchemaField("surname", DimensionFieldType, VARCHAR),
+              SchemaField("timestamp", TimestampFieldType, BIGINT),
+              SchemaField("value", ValueFieldType, DECIMAL)
             )
         }
       }

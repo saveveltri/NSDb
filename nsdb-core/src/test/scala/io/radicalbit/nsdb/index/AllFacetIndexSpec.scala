@@ -69,7 +69,7 @@ class AllFacetIndexSpec extends NSDbSpec with OneInstancePerTest {
                                       InternalTemporalAggregation(AvgAggregation("value")),
                                       "timestamp",
                                       "value",
-                                      Some(BIGINT()),
+                                      Some(BIGINT),
                                       ranges) shouldBe Seq(
         Bit(10,
             NSDbDoubleType(0.0),

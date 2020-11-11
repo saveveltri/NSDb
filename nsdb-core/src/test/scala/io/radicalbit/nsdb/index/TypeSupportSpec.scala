@@ -24,16 +24,16 @@ class TypeSupportSpec extends NSDbSpec {
   "TypeSupport" when {
     "Index type are used" should {
       "provide right MAX and MIN values for INT" in {
-        INT().MAX_VALUE shouldBe NSDbNumericType(Int.MaxValue)
-        INT().MIN_VALUE shouldBe NSDbNumericType(Int.MinValue)
+        INT.MAX_VALUE shouldBe NSDbNumericType(Int.MaxValue)
+        INT.MIN_VALUE shouldBe NSDbNumericType(Int.MinValue)
       }
       "provide right MAX and MIN values for LONG" in {
-        BIGINT().MAX_VALUE shouldBe NSDbNumericType(Long.MaxValue)
-        BIGINT().MIN_VALUE shouldBe NSDbNumericType(Long.MinValue)
+        BIGINT.MAX_VALUE shouldBe NSDbNumericType(Long.MaxValue)
+        BIGINT.MIN_VALUE shouldBe NSDbNumericType(Long.MinValue)
       }
       "provide right MAX and MIN values for DOUBLE" in {
-        DECIMAL().MAX_VALUE shouldBe NSDbNumericType(Double.MaxValue)
-        DECIMAL().MIN_VALUE shouldBe NSDbNumericType(Double.MinValue)
+        DECIMAL.MAX_VALUE shouldBe NSDbNumericType(Double.MaxValue)
+        DECIMAL.MIN_VALUE shouldBe NSDbNumericType(Double.MinValue)
       }
     }
   }

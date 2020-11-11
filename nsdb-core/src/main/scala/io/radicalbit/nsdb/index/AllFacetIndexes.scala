@@ -64,7 +64,7 @@ class AllFacetIndexes(basePath: String,
                         sort: Option[Sort],
                         limit: Option[Int],
                         indexType: IndexType[_],
-                        valueIndexType: IndexType[_] = BIGINT()): Seq[Bit] =
+                        valueIndexType: IndexType[_] = BIGINT): Seq[Bit] =
     facetCountIndex.result(query, groupField, sort, limit, indexType, valueIndexType)
 
   def executeRangeFacet(searcher: IndexSearcher,

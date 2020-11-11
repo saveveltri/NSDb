@@ -16,10 +16,15 @@
 
 package io.radicalbit.nsdb.index
 
+import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
+import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
+import com.fasterxml.jackson.databind.{DeserializationContext, SerializerProvider}
 import io.radicalbit.nsdb.common._
-import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.exception.TypeNotSupportedException
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.IndexType.{IndexTypeJsonDeserializer, IndexTypeJsonSerializer}
 import io.radicalbit.nsdb.model.{RawField, TypedField}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
@@ -53,14 +58,8 @@ trait TypeSupport {
   *
   * @tparam T corresponding raw type.
   */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-@JsonSubTypes(
-  Array(
-    new JsonSubTypes.Type(value = classOf[BIGINT], name = "BIGINT"),
-    new JsonSubTypes.Type(value = classOf[DECIMAL], name = "DECIMAL"),
-    new JsonSubTypes.Type(value = classOf[INT], name = "INT"),
-    new JsonSubTypes.Type(value = classOf[VARCHAR], name = "VARCHAR")
-  ))
+@JsonSerialize(using = classOf[IndexTypeJsonSerializer])
+@JsonDeserialize(using = classOf[IndexTypeJsonDeserializer])
 sealed trait IndexType[T] extends Serializable {
 
   /**
@@ -158,7 +157,7 @@ sealed abstract class NumericType[T] extends IndexType[T] {
 
 object IndexType {
 
-  private val supportedType = Seq(INT(), BIGINT(), DECIMAL(), VARCHAR())
+  private val supportedType = Seq(INT, BIGINT, DECIMAL, VARCHAR)
 
   def fromRawField(rawField: RawField): Try[TypedField] =
     supportedType.find(_.actualType == rawField.value.runtimeManifest) match {
@@ -175,9 +174,35 @@ object IndexType {
       case None                          => Failure(new TypeNotSupportedException(s"unsupported type $manifest"))
     }
 
+  /**
+    * Serializer for [[IndexType]]
+    */
+  class IndexTypeJsonSerializer extends StdSerializer[IndexType[_]](classOf[IndexType[_]]) {
+
+    override def serialize(value: IndexType[_], gen: JsonGenerator, provider: SerializerProvider): Unit =
+      gen.writeString(value.toString)
+  }
+
+  /**
+    * Deserializer for [[IndexType]]
+    */
+  class IndexTypeJsonDeserializer extends StdDeserializer[IndexType[_]](classOf[IndexType[_]]) {
+
+    override def deserialize(p: JsonParser, ctxt: DeserializationContext): IndexType[_] = {
+      p.getText match {
+        case "VARCHAR" => VARCHAR
+        case "INT"     => INT
+        case "BIGINT"  => BIGINT
+        case "DECIMAL" => DECIMAL
+        case wrongValue =>
+          throw new IllegalArgumentException(s"$wrongValue is not a valid value for IndexType")
+      }
+    }
+  }
+
 }
 
-case class INT() extends NumericType[Int] {
+case object INT extends NumericType[Int] {
   def actualType = manifest[Int]
   def ord        = Ordering[Int].asInstanceOf[Ordering[Any]]
   override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
@@ -207,7 +232,7 @@ case class INT() extends NumericType[Int] {
 
   val sortType: SortField.Type = SortField.Type.INT
 }
-case class BIGINT() extends NumericType[Long] {
+case object BIGINT extends NumericType[Long] {
   def actualType = manifest[Long]
   def ord        = Ordering[Long].asInstanceOf[Ordering[Any]]
   override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
@@ -236,7 +261,7 @@ case class BIGINT() extends NumericType[Long] {
 
   val sortType: SortField.Type = SortField.Type.LONG
 }
-case class DECIMAL() extends NumericType[Double] {
+case object DECIMAL extends NumericType[Double] {
   def actualType = manifest[Double]
   def ord        = Ordering[Double].asInstanceOf[Ordering[Any]]
   override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
@@ -265,7 +290,7 @@ case class DECIMAL() extends NumericType[Double] {
 
   val sortType: SortField.Type = SortField.Type.DOUBLE
 }
-case class VARCHAR() extends IndexType[String] {
+case object VARCHAR extends IndexType[String] {
   def actualType = manifest[String]
   def ord        = Ordering[String].asInstanceOf[Ordering[Any]]
   override def indexField(fieldName: String, value: NSDbType): Seq[Field] =

@@ -85,8 +85,11 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   private def createDimensions(dimensions: List[Dimension]): Map[String, NSDbType] =
     dimensions.map {
       case (n, t, v) =>
-        val i = Class.forName(t).newInstance().asInstanceOf[IndexType[_]]
-        n -> i.deserialize(v)
+        val clazz       = Class.forName(t)
+        val constructor = clazz.getDeclaredConstructor()
+        constructor.setAccessible(true)
+        val instance = constructor.newInstance().asInstanceOf[IndexType[_]]
+        n -> instance.deserialize(v)
     }.toMap
 
   /**

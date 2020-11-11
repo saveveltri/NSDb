@@ -145,8 +145,8 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                               sortField: String): Seq[Bit] = {
 
     val groupSelector = schema.fieldsMap(groupTagName).indexType match {
-      case _: VARCHAR => new TermGroupSelector(groupTagName)
-      case _          => new TermGroupSelector(s"${groupTagName}_str")
+      case VARCHAR => new TermGroupSelector(groupTagName)
+      case _       => new TermGroupSelector(s"${groupTagName}_str")
     }
 
     val sortType = schema.fieldsMap.get(sortField).map(_.indexType.sortType).getOrElse(SortField.Type.DOC)
@@ -216,13 +216,13 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     */
   def uniqueValues(query: Query, schema: Schema, groupTagName: String, aggregationField: String): Seq[Bit] = {
     val groupSelector = schema.fieldsMap(groupTagName).indexType match {
-      case _: VARCHAR => new TermGroupSelector(groupTagName)
-      case _          => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
+      case VARCHAR => new TermGroupSelector(groupTagName)
+      case _       => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
     }
 
     val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
-      case _: VARCHAR => new TermGroupSelector(aggregationField)
-      case _          => new TermGroupSelector(s"$aggregationField$stringAuxiliaryFieldSuffix")
+      case VARCHAR => new TermGroupSelector(aggregationField)
+      case _       => new TermGroupSelector(s"$aggregationField$stringAuxiliaryFieldSuffix")
     }
 
     val searcher = this.getSearcher
@@ -297,8 +297,8 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                                  new NSDbLongRangeFactory(lowerBound, interval, upperBound))
 
     val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
-      case _: VARCHAR => new TermGroupSelector(aggregationField)
-      case _          => new TermGroupSelector(s"$aggregationField$stringAuxiliaryFieldSuffix")
+      case VARCHAR => new TermGroupSelector(aggregationField)
+      case _       => new TermGroupSelector(s"$aggregationField$stringAuxiliaryFieldSuffix")
     }
 
     val firstPassGroupingCollector =
