@@ -57,7 +57,7 @@ object ReplicatedMetadataCache {
                                                         node: String,
                                                         replyTo: ActorRef)
   private final case class OutdatedLocationsRequest(replyTo: ActorRef)
-  private final case class PendingLocationsRequest(nodeId: Option[String], replyTo: ActorRef)
+  private final case class PendingLocationsRequest(replyTo: ActorRef)
   private final case class MetricInfoRequest(key: MetricInfoCacheKey, replyTo: ActorRef)
   private final case class AllMetricInfoWithRetentionRequest(replyTo: ActorRef)
   private final case class AllMetricInfoRequest(replyTo: ActorRef)
@@ -146,7 +146,7 @@ object ReplicatedMetadataCache {
   final case class AddOutdatedLocationFailed(db: String, namespace: String, location: Location)
       extends AddOutdatedLocationInCacheResponse
 
-  sealed trait AddPendingLocationInCacheResponse
+  sealed trait AddPendingLocationInCacheResponse extends NSDbSerializable
   final case class PendingLocationInCacheAdded(db: String, namespace: String, location: Location)
       extends AddPendingLocationInCacheResponse
   final case class AddPendingLocationFailed(db: String, namespace: String, location: Location)
@@ -158,8 +158,8 @@ object ReplicatedMetadataCache {
       extends GetOutdatedLocationsFromCacheResponse
   final case class GetOutdatedLocationsFromCacheFailed(reason: String) extends GetOutdatedLocationsFromCacheResponse
 
-  final case class GetPendingLocationsFromCache(nodeId: Option[String]) extends NSDbSerializable
-  sealed trait GetPendingLocationsFromCacheResponse                     extends NSDbSerializable
+  final case object GetPendingLocationsFromCache    extends NSDbSerializable
+  sealed trait GetPendingLocationsFromCacheResponse extends NSDbSerializable
   final case class PendingLocationsFromCacheGot(locations: Set[LocationWithCoordinates])
       extends GetPendingLocationsFromCacheResponse
   final case class GetPendingLocationsFromCacheFailed(reason: String) extends GetPendingLocationsFromCacheResponse
@@ -370,9 +370,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case GetOutdatedLocationsFromCache =>
       log.debug("searching for outdated locations in cache")
       replicator ! Get(outdatedLocationsKey, ReadLocal, Some(OutdatedLocationsRequest(sender())))
-    case GetPendingLocationsFromCache(nodeId) =>
+    case GetPendingLocationsFromCache =>
       log.debug("searching for outdated locations in cache")
-      replicator ! Get(pendingLocationsKey, ReadLocal, Some(PendingLocationsRequest(nodeId, sender())))
+      replicator ! Get(pendingLocationsKey, ReadLocal, Some(PendingLocationsRequest(sender())))
     case GetAllMetricInfoWithRetention =>
       log.debug("searching for key {} in cache", allMetricInfoKey)
       replicator ! Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoWithRetentionRequest(sender())))
@@ -495,6 +495,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case g @ GetSuccess(_, Some(OutdatedLocationsRequest(replyTo))) =>
       val elements = g.dataValue.asInstanceOf[ORSet[LocationWithCoordinates]].elements
       replyTo ! OutdatedLocationsFromCacheGot(elements)
+    case g @ GetSuccess(_, Some(PendingLocationsRequest(replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[LocationWithCoordinates]].elements
+      replyTo ! PendingLocationsFromCacheGot(elements)
     case g @ GetSuccess(LWWMapKey(_), Some(MetricInfoRequest(key, replyTo))) =>
       val dataValue = g.dataValue
         .asInstanceOf[LWWMap[MetricInfoCacheKey, MetricInfo]]
@@ -525,6 +528,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       replyTo ! LocationsCached(db, namespace, metric, Seq.empty)
     case NotFound(_, Some(OutdatedLocationsRequest(replyTo))) =>
       replyTo ! OutdatedLocationsFromCacheGot(Set.empty)
+    case NotFound(_, Some(PendingLocationsRequest(replyTo))) =>
+      replyTo ! PendingLocationsFromCacheGot(Set.empty)
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
     case NotFound(_, Some(AllMetricInfoWithRetentionRequest(replyTo))) =>

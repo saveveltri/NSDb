@@ -144,6 +144,27 @@ class MetadataCoordinator(clusterListener: ActorRef,
         }
       }
 
+  private def performAddPendingLocationIntoCache(
+      locations: Seq[LocationWithCoordinates]): Future[AddPendingLocationsResponse] =
+    Future
+      .sequence(locations.map {
+        case LocationWithCoordinates(db, namespace, location) =>
+          (metadataCache ? AddPendingLocationInCache(db, namespace, location))
+            .mapTo[AddPendingLocationInCacheResponse]
+      })
+      .flatMap { responses =>
+        val (successResponses: List[PendingLocationInCacheAdded], errorResponses: List[AddPendingLocationFailed]) =
+          partitionResponses[PendingLocationInCacheAdded, AddPendingLocationFailed](responses)
+
+        if (successResponses.size == responses.size) {
+          Future(PendingLocationsAdded(successResponses.map(res =>
+            LocationWithCoordinates(res.db, res.namespace, res.location))))
+        } else {
+          log.error(s"errors in adding pending locations in cache $errorResponses")
+          Future(AddPendingLocationsFailed(locations))
+        }
+      }
+
   /**
     * Retrieve the actual custom info for a metric. If a custom interval has been configured, it will be returned,
     * otherwise the default interval (gather from the global conf file) will be used
@@ -505,12 +526,24 @@ class MetadataCoordinator(clusterListener: ActorRef,
       performAddLocationIntoCache(db, namespace, locations, consistencyOpt).pipeTo(sender)
     case AddOutdatedLocations(locations) =>
       performAddOutdatedLocationIntoCache(locations).pipeTo(sender)
+    case AddPendingLocations(locations) =>
+      performAddPendingLocationIntoCache(locations).pipeTo(sender)
     case GetOutdatedLocations =>
       (metadataCache ? GetOutdatedLocationsFromCache)
         .mapTo[GetOutdatedLocationsFromCacheResponse]
         .map {
           case OutdatedLocationsFromCacheGot(locations)    => OutdatedLocationsGot(locations.toSeq)
           case GetOutdatedLocationsFromCacheFailed(reason) => GetOutdatedLocationsFailed(reason)
+        }
+        .pipeTo(sender)
+    case GetPendingLocations =>
+      (metadataCache ? GetPendingLocationsFromCache)
+        .mapTo[GetPendingLocationsFromCacheResponse]
+        .map {
+          case PendingLocationsFromCacheGot(locations) =>
+            PendingLocationsGot(locations.toSeq)
+          case GetPendingLocationsFromCacheFailed(reason) =>
+            GetPendingLocationsFailed(reason)
         }
         .pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
@@ -623,9 +656,8 @@ object MetadataCoordinator {
     case class AddOutdatedLocations(locations: Seq[LocationWithCoordinates]) extends NSDbSerializable
     case object GetOutdatedLocations                                         extends NSDbSerializable
 
-    case class AddPendingLocations(locations: Seq[LocationWithCoordinates]) extends NSDbSerializable
-    case object GetPendingLocations                                         extends NSDbSerializable
-    case class GetPendingLocations(nodeId: Option[String] = None)
+    case class AddPendingLocations(locations: Seq[LocationWithCoordinates])    extends NSDbSerializable
+    case object GetPendingLocations                                            extends NSDbSerializable
     case class RemovePendingLocations(locations: Seq[LocationWithCoordinates]) extends NSDbSerializable
 
     case class DeleteMetricMetadata(db: String,
@@ -649,7 +681,9 @@ object MetadataCoordinator {
     @JsonSubTypes(
       Array(
         new JsonSubTypes.Type(value = classOf[WriteLocationsGot], name = "WriteLocationsGot"),
-        new JsonSubTypes.Type(value = classOf[GetWriteLocationsFailed], name = "GetWriteLocationsFailed")
+        new JsonSubTypes.Type(value = classOf[GetWriteLocationsFailed], name = "GetWriteLocationsFailed"),
+        new JsonSubTypes.Type(value = classOf[GetWriteLocationsBeyondRetention],
+                              name = "GetWriteLocationsBeyondRetention")
       ))
     sealed trait GetWriteLocationsResponse extends NSDbSerializable
     case class WriteLocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
@@ -717,12 +751,12 @@ object MetadataCoordinator {
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(
       Array(
-        new JsonSubTypes.Type(value = classOf[GetPendingLocationsGot], name = "GetPendingLocationsGot"),
-        new JsonSubTypes.Type(value = classOf[GetGetPendingLocationsFailed], name = "GetGetPendingLocationsFailed")
+        new JsonSubTypes.Type(value = classOf[PendingLocationsGot], name = "PendingLocationsGot"),
+        new JsonSubTypes.Type(value = classOf[GetPendingLocationsFailed], name = "GetPendingLocationsFailed")
       ))
-    sealed trait GetPendingLocationsResponse                                   extends NSDbSerializable
-    case class GetPendingLocationsGot(locations: Seq[LocationWithCoordinates]) extends GetPendingLocationsResponse
-    case class GetGetPendingLocationsFailed(reason: String)                    extends GetPendingLocationsResponse
+    sealed trait GetPendingLocationsResponse                                extends NSDbSerializable
+    case class PendingLocationsGot(locations: Seq[LocationWithCoordinates]) extends GetPendingLocationsResponse
+    case class GetPendingLocationsFailed(reason: String)                    extends GetPendingLocationsResponse
 
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
         extends NSDbSerializable

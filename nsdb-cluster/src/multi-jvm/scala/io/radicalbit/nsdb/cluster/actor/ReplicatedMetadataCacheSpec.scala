@@ -503,6 +503,47 @@ class ReplicatedMetadataCacheSpec
       }
     }
 
+    "manage pending locations" in {
+
+      replicatedCache ! GetPendingLocationsFromCache
+
+      awaitAssert {
+        expectMsgType[PendingLocationsFromCacheGot].locations.size shouldBe 0
+      }
+
+      enterBarrier("no-pending-locations")
+
+      val location = Location("metric", "node1",0,1)
+
+      awaitAssert {
+        replicatedCache ! AddPendingLocationInCache("db", "namespace", location)
+        val pendingLocationAdded = expectMsgType[PendingLocationInCacheAdded]
+        pendingLocationAdded.db shouldBe "db"
+        pendingLocationAdded.namespace shouldBe "namespace"
+        pendingLocationAdded.location shouldBe location
+      }
+
+      awaitAssert {
+        replicatedCache ! AddPendingLocationInCache("db1", "namespace1", location)
+        val pendingLocationAdded = expectMsgType[PendingLocationInCacheAdded]
+        pendingLocationAdded.db shouldBe "db1"
+        pendingLocationAdded.namespace shouldBe "namespace1"
+        pendingLocationAdded.location shouldBe location
+      }
+
+      enterBarrier("after-add-outdated-locations")
+
+      awaitAssert {
+        replicatedCache ! GetPendingLocationsFromCache
+        val pendingLocationsFromCacheGot = expectMsgType[PendingLocationsFromCacheGot]
+        pendingLocationsFromCacheGot.locations shouldBe
+          Set(
+            LocationWithCoordinates("db1", "namespace1", location),
+            LocationWithCoordinates("db", "namespace", location)
+          )
+      }
+    }
+
   }
 
 }

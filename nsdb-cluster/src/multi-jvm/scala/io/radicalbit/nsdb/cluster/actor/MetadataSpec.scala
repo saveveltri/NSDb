@@ -114,6 +114,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         expectMsgType[GetWriteLocationsBeyondRetention]
       }
 
+      enterBarrier("after-write-locations-beyond-retention")
+
       val currentTime = System.currentTimeMillis()
 
       metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime)
@@ -182,6 +184,42 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       }
 
       enterBarrier("after-get-outdated-locations")
+    }
+
+    "manage pending locations" in {
+      val selfMember = cluster.selfMember
+      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+      val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
+
+      metadataCoordinator ! GetPendingLocations
+
+      awaitAssert{
+        expectMsgType[PendingLocationsGot].locations.size shouldBe 0
+      }
+
+      enterBarrier("no-pending-locations")
+
+      val pendingLocations = Seq(
+        LocationWithCoordinates("db", "namespace", Location("metric", "node1", 0,1)),
+        LocationWithCoordinates("db1", "namespace", Location("metric1", "node2", 1,4)),
+        LocationWithCoordinates("db", "namespace1", Location("metric", "node1", 0,1)),
+        LocationWithCoordinates("db", "namespaces", Location("metric", "node2", 0,1))
+      )
+
+      metadataCoordinator ! AddPendingLocations(pendingLocations)
+      awaitAssert {
+        expectMsg(PendingLocationsAdded(pendingLocations))
+      }
+
+      enterBarrier("after-add-pending-locations")
+
+      metadataCoordinator ! GetPendingLocations
+
+      awaitAssert{
+        expectMsgType[PendingLocationsGot].locations.toSet shouldBe pendingLocations.toSet
+      }
+
+      enterBarrier("after-get-pending-locations")
     }
   }
 }
