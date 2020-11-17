@@ -129,7 +129,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
       .sequence(locations.map {
         case LocationWithCoordinates(db, namespace, location) =>
           (metadataCache ? AddOutdatedLocationInCache(db, namespace, location))
-            .mapTo[AddLocationInCacheResponse]
+            .mapTo[AddOutdatedLocationInCacheResponse]
       })
       .flatMap { responses =>
         val (successResponses: List[OutdatedLocationInCacheAdded], errorResponses: List[AddOutdatedLocationFailed]) =
@@ -623,6 +623,11 @@ object MetadataCoordinator {
     case class AddOutdatedLocations(locations: Seq[LocationWithCoordinates]) extends NSDbSerializable
     case object GetOutdatedLocations                                         extends NSDbSerializable
 
+    case class AddPendingLocations(locations: Seq[LocationWithCoordinates]) extends NSDbSerializable
+    case object GetPendingLocations                                         extends NSDbSerializable
+    case class GetPendingLocations(nodeId: Option[String] = None)
+    case class RemovePendingLocations(locations: Seq[LocationWithCoordinates]) extends NSDbSerializable
+
     case class DeleteMetricMetadata(db: String,
                                     namespace: String,
                                     metric: String,
@@ -681,12 +686,43 @@ object MetadataCoordinator {
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(
       Array(
-        new JsonSubTypes.Type(value = classOf[OutdatedLocationsAdded], name = "OutdatedLocationsGot"),
+        new JsonSubTypes.Type(value = classOf[PendingLocationsAdded], name = "PendingLocationsAdded"),
+        new JsonSubTypes.Type(value = classOf[AddPendingLocationsFailed], name = "AddPendingLocationsFailed")
+      ))
+    sealed trait AddPendingLocationsResponse                                      extends NSDbSerializable
+    case class PendingLocationsAdded(locations: Seq[LocationWithCoordinates])     extends AddPendingLocationsResponse
+    case class AddPendingLocationsFailed(locations: Seq[LocationWithCoordinates]) extends AddPendingLocationsResponse
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[PendingLocationsRemoved], name = "PendingLocationsRemoved"),
+        new JsonSubTypes.Type(value = classOf[RemovePendingLocationsFailed], name = "RemovePendingLocationsFailed")
+      ))
+    sealed trait RemovePendingLocationsResponse                                 extends NSDbSerializable
+    case class PendingLocationsRemoved(locations: Seq[LocationWithCoordinates]) extends RemovePendingLocationsResponse
+    case class RemovePendingLocationsFailed(locations: Seq[LocationWithCoordinates])
+        extends RemovePendingLocationsResponse
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[OutdatedLocationsGot], name = "OutdatedLocationsGot"),
         new JsonSubTypes.Type(value = classOf[AddOutdatedLocationsFailed], name = "GetOutdatedLocationsFailed")
       ))
     sealed trait GetOutdatedLocationsResponse                                extends NSDbSerializable
     case class OutdatedLocationsGot(locations: Seq[LocationWithCoordinates]) extends GetOutdatedLocationsResponse
     case class GetOutdatedLocationsFailed(reason: String)                    extends GetOutdatedLocationsResponse
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[GetPendingLocationsGot], name = "GetPendingLocationsGot"),
+        new JsonSubTypes.Type(value = classOf[GetGetPendingLocationsFailed], name = "GetGetPendingLocationsFailed")
+      ))
+    sealed trait GetPendingLocationsResponse                                   extends NSDbSerializable
+    case class GetPendingLocationsGot(locations: Seq[LocationWithCoordinates]) extends GetPendingLocationsResponse
+    case class GetGetPendingLocationsFailed(reason: String)                    extends GetPendingLocationsResponse
 
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
         extends NSDbSerializable

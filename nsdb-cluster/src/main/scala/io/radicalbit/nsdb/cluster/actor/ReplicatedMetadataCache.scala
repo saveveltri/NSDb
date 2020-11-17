@@ -57,6 +57,7 @@ object ReplicatedMetadataCache {
                                                         node: String,
                                                         replyTo: ActorRef)
   private final case class OutdatedLocationsRequest(replyTo: ActorRef)
+  private final case class PendingLocationsRequest(nodeId: Option[String], replyTo: ActorRef)
   private final case class MetricInfoRequest(key: MetricInfoCacheKey, replyTo: ActorRef)
   private final case class AllMetricInfoWithRetentionRequest(replyTo: ActorRef)
   private final case class AllMetricInfoRequest(replyTo: ActorRef)
@@ -83,7 +84,7 @@ object ReplicatedMetadataCache {
   final case class PutCoordinateInCacheFailed(db: String, namespace: String, metric: String)
       extends AddCoordinateResponse
 
-  sealed trait AddLocationResponse
+  sealed trait AddLocationResponse extends NSDbSerializable
 
   final case class LocationCached(db: String, namespace: String, metric: String, value: Location)
       extends AddLocationResponse
@@ -101,10 +102,12 @@ object ReplicatedMetadataCache {
   final case class EvictLocation(db: String, namespace: String, location: Location) extends NSDbSerializable
   final case class EvictLocationsInNode(nodeName: String)                           extends NSDbSerializable
 
-  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends NSDbSerializable
-  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
-  final case class LocationsInNodeEvicted(nodeName: String)                               extends NSDbSerializable
-  final case class EvictLocationsInNodeFailed(nodeName: String)                           extends NSDbSerializable
+  sealed trait EvictLocationResponse                                                      extends NSDbSerializable
+  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends EvictLocationResponse
+  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends EvictLocationResponse
+  sealed trait EvictLocationsInNodeResponse                                               extends NSDbSerializable
+  final case class LocationsInNodeEvicted(nodeName: String)                               extends EvictLocationsInNodeResponse
+  final case class EvictLocationsInNodeFailed(nodeName: String)                           extends EvictLocationsInNodeResponse
 
   final case class PutMetricInfoInCache(metricInfo: MetricInfo)                          extends NSDbSerializable
   final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo) extends NSDbSerializable
@@ -135,16 +138,31 @@ object ReplicatedMetadataCache {
 
   final case class AddOutdatedLocationInCache(db: String, namespace: String, location: Location)
       extends NSDbSerializable
-  sealed trait AddLocationInCacheResponse extends NSDbSerializable
+  final case class AddPendingLocationInCache(db: String, namespace: String, location: Location) extends NSDbSerializable
+
+  sealed trait AddOutdatedLocationInCacheResponse extends NSDbSerializable
   final case class OutdatedLocationInCacheAdded(db: String, namespace: String, location: Location)
-      extends AddLocationInCacheResponse
+      extends AddOutdatedLocationInCacheResponse
   final case class AddOutdatedLocationFailed(db: String, namespace: String, location: Location)
-      extends AddLocationInCacheResponse
+      extends AddOutdatedLocationInCacheResponse
+
+  sealed trait AddPendingLocationInCacheResponse
+  final case class PendingLocationInCacheAdded(db: String, namespace: String, location: Location)
+      extends AddPendingLocationInCacheResponse
+  final case class AddPendingLocationFailed(db: String, namespace: String, location: Location)
+      extends AddPendingLocationInCacheResponse
+
   final case object GetOutdatedLocationsFromCache    extends NSDbSerializable
   sealed trait GetOutdatedLocationsFromCacheResponse extends NSDbSerializable
   final case class OutdatedLocationsFromCacheGot(locations: Set[LocationWithCoordinates])
       extends GetOutdatedLocationsFromCacheResponse
   final case class GetOutdatedLocationsFromCacheFailed(reason: String) extends GetOutdatedLocationsFromCacheResponse
+
+  final case class GetPendingLocationsFromCache(nodeId: Option[String]) extends NSDbSerializable
+  sealed trait GetPendingLocationsFromCacheResponse                     extends NSDbSerializable
+  final case class PendingLocationsFromCacheGot(locations: Set[LocationWithCoordinates])
+      extends GetPendingLocationsFromCacheResponse
+  final case class GetPendingLocationsFromCacheFailed(reason: String) extends GetPendingLocationsFromCacheResponse
 }
 
 /**
@@ -200,6 +218,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     * Creates a [[ORSetKey]] for outdated locations
     */
   private val outdatedLocationsKey: ORSetKey[LocationWithCoordinates] = ORSetKey(s"outdated-locations-cache")
+
+  /**
+    * Creates a [[ORSetKey]] for pending locations
+    */
+  private val pendingLocationsKey: ORSetKey[LocationWithCoordinates] = ORSetKey(s"pending-locations-cache")
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
@@ -278,10 +301,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       } yield remove
       f.map {
           case UpdateSuccess(_, _) =>
-            Right(LocationEvicted(db, namespace, Location(metric, node, from, to)))
+            LocationEvicted(db, namespace, Location(metric, node, from, to))
           case e =>
             log.error(s"unexpected result during location eviction $e")
-            Left(EvictLocationFailed(db, namespace, Location(metric, node, from, to)))
+            EvictLocationFailed(db, namespace, Location(metric, node, from, to))
         }
         .pipeTo(sender)
     case EvictLocationsInNode(nodeName) =>
@@ -296,21 +319,22 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
                   .map {
                     case LocationWithCoordinates(db, namespace, location) =>
                       (self ? EvictLocation(db, namespace, location))
-                        .mapTo[Either[EvictLocationFailed, LocationEvicted]]
+                        .mapTo[EvictLocationResponse]
                   }
               )
               .map { responses =>
-                val (_, failures) = ErrorManagementUtils.partitionResponses(responses)
+                val (_, failures) =
+                  ErrorManagementUtils.partitionResponses[LocationEvicted, EvictLocationFailed](responses)
                 if (failures.nonEmpty) {
                   log.error(s"error in evicting locations $failures")
-                  Left(EvictLocationsInNodeFailed(nodeName))
-                } else Right(LocationsInNodeEvicted(nodeName))
+                  EvictLocationsInNodeFailed(nodeName)
+                } else LocationsInNodeEvicted(nodeName)
               }
           case NotFound(_, _) =>
-            Future(Right(LocationsInNodeEvicted(nodeName)))
+            Future(LocationsInNodeEvicted(nodeName))
           case e =>
             log.error(s"cannot retrieve locations for node $nodeName, got $e")
-            Future(Left(EvictLocationsInNodeFailed(nodeName)))
+            Future(EvictLocationsInNodeFailed(nodeName))
         }
         .pipeTo(sender)
     case AddOutdatedLocationInCache(db, namespace, location) =>
@@ -320,8 +344,19 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
           case UpdateSuccess(_, _) =>
             OutdatedLocationInCacheAdded(db, namespace, location)
           case e =>
-            log.error(s"error in put location in cache $e")
+            log.error(s"error in put outdated location in cache $e")
             AddOutdatedLocationFailed(db, namespace, location)
+        }
+        .pipeTo(sender)
+    case AddPendingLocationInCache(db, namespace, location) =>
+      (replicator ? Update(pendingLocationsKey, ORSet(), metadataWriteConsistency)(
+        _ :+ LocationWithCoordinates(db, namespace, location)))
+        .map {
+          case UpdateSuccess(_, _) =>
+            PendingLocationInCacheAdded(db, namespace, location)
+          case e =>
+            log.error(s"error in put pending location in cache $e")
+            AddPendingLocationFailed(db, namespace, location)
         }
         .pipeTo(sender)
     case GetLocationsFromCache(db, namespace, metric) =>
@@ -335,6 +370,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case GetOutdatedLocationsFromCache =>
       log.debug("searching for outdated locations in cache")
       replicator ! Get(outdatedLocationsKey, ReadLocal, Some(OutdatedLocationsRequest(sender())))
+    case GetPendingLocationsFromCache(nodeId) =>
+      log.debug("searching for outdated locations in cache")
+      replicator ! Get(pendingLocationsKey, ReadLocal, Some(PendingLocationsRequest(nodeId, sender())))
     case GetAllMetricInfoWithRetention =>
       log.debug("searching for key {} in cache", allMetricInfoKey)
       replicator ! Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoWithRetentionRequest(sender())))
@@ -395,10 +433,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         }
         (_, failedEvictions) <- Future
           .sequence {
-            locations.map(location =>
-              (self ? EvictLocation(db, namespace, location)).mapTo[Either[EvictLocationFailed, LocationEvicted]])
+            locations.map(location => (self ? EvictLocation(db, namespace, location)).mapTo[EvictLocationResponse])
           }
-          .map(responses => ErrorManagementUtils.partitionResponses(responses))
+          .map(responses => ErrorManagementUtils.partitionResponses[LocationEvicted, EvictLocationFailed](responses))
         metricInfos <- (replicator ? Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoRequest(sender()))))
           .map {
             case g @ GetSuccess(_, _) =>
@@ -432,7 +469,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
 
       chain
         .recover {
-          case _ => DropNamespaceFromCacheFailed(db, namespace)
+          case t: Throwable =>
+            log.error(t, "error during drop namespace")
+            DropNamespaceFromCacheFailed(db, namespace)
         }
         .pipeTo(sender())
     case g: GetFailure[_] =>

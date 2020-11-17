@@ -6,10 +6,10 @@ import akka.cluster.ddata.Replicator.{GetReplicaCount, ReplicaCount}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.STMultiNodeSpec
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
-import io.radicalbit.nsdb.STMultiNodeSpec
 
 import scala.concurrent.duration._
 
@@ -17,43 +17,7 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
   val node1 = role("node-1")
   val node2 = role("node-2")
 
-  commonConfig(ConfigFactory.parseString("""
-    |akka.loglevel = ERROR
-    |akka.actor {
-    | provider = "cluster"
-    |
-    | serialization-bindings {
-    |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
-    | }
-    |
-    | control-aware-dispatcher {
-    |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
-    |   }
-    |}
-    |akka.log-dead-letters-during-shutdown = off
-    |nsdb {
-    |
-    |  global.timeout = 30 seconds
-    |  read-coordinator.timeout = 10 seconds
-    |  namespace-schema.timeout = 10 seconds
-    |  namespace-data.timeout = 10 seconds
-    |  publisher.timeout = 10 seconds
-    |  publisher.scheduler.interval = 5 seconds
-    |  write.scheduler.interval = 15 seconds
-    |
-    |  cluster.metadata-write-consistency = "all"
-    |
-    |  write-coordinator.timeout = 5 seconds
-    |  metadata-coordinator.timeout = 5 seconds
-    |  commit-log {
-    |    serializer = "io.radicalbit.nsdb.commit_log.StandardCommitLogSerializer"
-    |    writer = "io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter"
-    |    directory = "target/commitLog"
-    |    max-size = 50000
-    |    passivate-after = 5s
-    |  }
-    |}
-    """.stripMargin))
+  commonConfig(ConfigFactory.parseResources("application.conf"))
 }
 
 class ReplicatedMetadataCacheSpecMultiJvmNode1 extends ReplicatedMetadataCacheSpec
@@ -359,7 +323,7 @@ class ReplicatedMetadataCacheSpec
       enterBarrier("after-bulk-add")
     }
 
-    "do not allow insertion of an already present metric info" in within(5.seconds) {
+    "do not allow insertion of an already present metric info" in {
       val metric          = "metricInfo"
       val metricInfoKey   = MetricInfoCacheKey("db", "namespace", metric)
       val metricInfoValue = MetricInfo("db", "namespace",metric, 100)
@@ -386,7 +350,7 @@ class ReplicatedMetadataCacheSpec
       }
     }
 
-    "replicate evicted entry" in within(5.seconds) {
+    "replicate evicted entry" in {
       val metric    = "metric3"
       val location  = Location(metric, "node1", 0, 1)
 
@@ -402,7 +366,7 @@ class ReplicatedMetadataCacheSpec
         }
 
         replicatedCache ! EvictLocation("db", "namespace", Location(metric, "node1", 0, 1))
-        expectMsg(Right(LocationEvicted("db", "namespace", Location(metric, "node1", 0, 1))))
+        expectMsg(LocationEvicted("db", "namespace", Location(metric, "node1", 0, 1)))
       }
 
       runOn(node1) {
@@ -477,7 +441,7 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node2) {
           replicatedCache ! EvictLocationsInNode("node10")
-          expectMsg(Right(LocationsInNodeEvicted("node10")))
+          expectMsg(LocationsInNodeEvicted("node10"))
       }
 
       awaitAssert {
@@ -487,7 +451,7 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node1) {
           replicatedCache ! EvictLocationsInNode("node20")
-          expectMsg(Right(LocationsInNodeEvicted("node20")))
+          expectMsg(LocationsInNodeEvicted("node20"))
       }
 
       awaitAssert {
