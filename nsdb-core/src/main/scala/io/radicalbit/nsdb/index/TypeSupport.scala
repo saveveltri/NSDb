@@ -60,7 +60,7 @@ trait TypeSupport {
   */
 @JsonSerialize(using = classOf[IndexTypeJsonSerializer])
 @JsonDeserialize(using = classOf[IndexTypeJsonDeserializer])
-sealed trait IndexType[T] extends Serializable {
+sealed trait IndexType[T] {
 
   /**
     * @return the scala type.
@@ -120,6 +120,7 @@ sealed trait IndexType[T] extends Serializable {
   @throws[ClassCastException]("underlying type of Index is a string")
   def asNumericType: NumericType[T]
 
+  override def equals(obj: Any): Boolean = obj.isInstanceOf[IndexType[_]] && obj.getClass.getName == this.getClass.getName
 }
 
 /**
@@ -134,7 +135,7 @@ sealed trait IndexType[T] extends Serializable {
   *
   * @tparam T corresponding raw type.
   */
-sealed abstract class NumericType[T] extends IndexType[T] {
+sealed trait NumericType[T] extends IndexType[T] {
 
   /**
     * Returns a [[Numeric]] to be used for arithmetic operations
