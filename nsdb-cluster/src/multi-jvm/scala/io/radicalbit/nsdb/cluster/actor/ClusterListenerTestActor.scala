@@ -34,7 +34,8 @@ abstract class ClusterListenerTestActor
       List(LocationWithCoordinates("failure", "namespace", Location("metric", "node", 0L, 1L)))
   }
 
-  override def onSuccessBehaviour(readCoordinator: ActorRef,
+  override def onSuccessBehaviour(nodeId: String,
+                                  readCoordinator: ActorRef,
                                   writeCoordinator: ActorRef,
                                   metadataCoordinator: ActorRef,
                                   publisherActor: ActorRef): Unit = {

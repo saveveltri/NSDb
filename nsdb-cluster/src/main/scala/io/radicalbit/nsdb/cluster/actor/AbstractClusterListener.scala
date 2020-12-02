@@ -117,7 +117,8 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   protected def retrieveLocationsToAdd: List[LocationWithCoordinates] =
     FileUtils.getLocationsFromFilesystem(indexPath, nodeId)
 
-  protected def onSuccessBehaviour(readCoordinator: ActorRef,
+  protected def onSuccessBehaviour(nodeId: String,
+                                   readCoordinator: ActorRef,
                                    writeCoordinator: ActorRef,
                                    metadataCoordinator: ActorRef,
                                    publisherActor: ActorRef): Unit
@@ -196,7 +197,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
             mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
             NSDbClusterSnapshot(context.system).addNode(nodeName, nodeId)
-            onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
+            onSuccessBehaviour(nodeId, readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
           case e =>
             onFailureBehaviour(member, e)
         }

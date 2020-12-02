@@ -23,11 +23,14 @@ import io.radicalbit.nsdb.cluster.NsdbNodeEndpoint
 final class ClusterListener extends AbstractClusterListener {
   override def enableClusterMetricsExtension: Boolean = true
 
-  protected def onSuccessBehaviour(readCoordinator: ActorRef,
+  protected def onSuccessBehaviour(nodeId: String,
+                                   readCoordinator: ActorRef,
                                    writeCoordinator: ActorRef,
                                    metadataCoordinator: ActorRef,
-                                   publisherActor: ActorRef): Unit =
+                                   publisherActor: ActorRef): Unit = {
+    log.info(s"Member subscription completed successfully for node $nodeId")
     new NsdbNodeEndpoint(nodeId, readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
+  }
 
   protected def onFailureBehaviour(member: Member, error: Any): Unit = {
     log.error("received wrong response {}", error)
