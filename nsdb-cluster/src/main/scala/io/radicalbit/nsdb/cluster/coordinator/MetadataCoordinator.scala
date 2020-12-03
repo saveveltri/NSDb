@@ -71,8 +71,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
     with DirectorySupport {
   private val cluster = Cluster(context.system)
 
-  private val nsdbClusterSnapshot = NSDbClusterSnapshot(context.system)
-
   private val config = context.system.settings.config
 
   implicit val timeout: Timeout =
@@ -479,7 +477,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
                             }
 
-                          val nodesWithId = nodes.map(address => (nsdbClusterSnapshot.getId(address), address))
+                          val nodesWithId = nodes.map(address => (NSDbClusterSnapshot(context.system).getId(address), address))
 
                           val locations = nodesWithId.map { case (id, _) => Location(metric, id, start, end) }
                           performAddLocationIntoCache(db, namespace, locations, None)
