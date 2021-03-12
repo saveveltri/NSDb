@@ -83,16 +83,4 @@ object GrpcBitConverters {
       )
   }
 
-  implicit def bitValueToGrpcValue(value: GrpcBit.Value) =
-    value match {
-      case v: GrpcBit.Value.DecimalValue => RPCInsert.Value.DecimalValue(v.decimalValue.get)
-      case v: GrpcBit.Value.LongValue    => RPCInsert.Value.DecimalValue(v.longValue.get)
-    }
-
-  implicit def bitValueToGrpcValue(value: RPCInsert.Value) =
-    value match {
-      case v: RPCInsert.Value.DecimalValue => GrpcBit.Value.DecimalValue(v.decimalValue.get)
-      case v: RPCInsert.Value.LongValue    => GrpcBit.Value.DecimalValue(v.longValue.get)
-    }
-
 }
