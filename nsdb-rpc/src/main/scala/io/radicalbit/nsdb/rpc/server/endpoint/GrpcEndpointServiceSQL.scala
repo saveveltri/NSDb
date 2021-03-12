@@ -19,7 +19,6 @@ package io.radicalbit.nsdb.rpc.server.endpoint
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.rpc.GrpcBitConverters._
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{
@@ -36,7 +35,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
   MapInput
 }
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
+import io.radicalbit.nsdb.rpc.GrpcBitConverters._
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
@@ -49,7 +48,6 @@ import org.slf4j.LoggerFactory
 import scalapb.descriptors.ServiceDescriptor
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 /**
   * Concrete implementation of the Sql Grpc service
@@ -69,64 +67,29 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
   override def insertBit(request: RPCInsert): Future[RPCInsertResult] = {
     log.debug("Received a write request {}", request)
 
-    //FIXME the rpc request must be refactor by encapsulate all the bit information inside a bit object and then use the converters
-    val bit = Bit(
-      timestamp = request.timestamp,
-      dimensions = request.dimensions.collect {
-        case (k, v) => (k, dimensionFor(v.value))
-      },
-      tags = request.tags.collect {
-        case (k, v) => (k, tagFor(v.value))
-      },
-      value = valueFor(request.value)
-    )
-
-    val res = (writeCoordinator ? MapInput(
-      db = request.database,
-      namespace = request.namespace,
-      metric = request.metric,
-      ts = request.timestamp,
-      record = bit
-    )).map {
-      case _: InputMapped =>
-        RPCInsertResult(completedSuccessfully = true)
-      case msg: RecordRejected =>
-        RPCInsertResult(completedSuccessfully = false, errors = msg.reasons.mkString(","))
-      case _ => RPCInsertResult(completedSuccessfully = false, errors = "unknown reason")
-    } recover {
+    (for {
+      bit <- request.bit.fold(Future.failed[Bit](new IllegalArgumentException("bit is required")))(grpcBit =>
+        Future(grpcBit.asBit))
+      writeBitResult <- (writeCoordinator ? MapInput(
+        db = request.database,
+        namespace = request.namespace,
+        metric = request.metric,
+        ts = bit.timestamp,
+        record = bit
+      )).map {
+        case _: InputMapped =>
+          log.debug("Completed the write request {}", request)
+          RPCInsertResult(completedSuccessfully = true)
+        case msg: RecordRejected =>
+          log.error(s"write request $request completed with errors ${msg.reasons}")
+          RPCInsertResult(completedSuccessfully = false, errors = msg.reasons.mkString(","))
+        case _ => RPCInsertResult(completedSuccessfully = false, errors = "unknown reason")
+      }
+    } yield writeBitResult).recover {
       case t =>
-        log.error(s"error while inserting $bit", t)
+        log.error(s"error while performing insert request $request", t)
         RPCInsertResult(completedSuccessfully = false, t.getMessage)
     }
-
-    res.onComplete {
-      case Success(res: RPCInsertResult) =>
-        log.debug("Completed the write request {}", request)
-        if (res.completedSuccessfully)
-          log.debug("The result is {}", res)
-        else
-          log.error("The result is {}", res)
-      case Failure(t: Throwable) =>
-        log.error(s"error on request $request", t)
-    }
-    res
-  }
-
-  private def valueFor(v: RPCInsert.Value): NSDbNumericType = v match {
-    case _: RPCInsert.Value.DecimalValue => NSDbNumericType(v.decimalValue.get)
-    case _: RPCInsert.Value.LongValue    => NSDbNumericType(v.longValue.get)
-  }
-
-  private def dimensionFor(v: Dimension.Value): NSDbType = v match {
-    case _: Dimension.Value.DecimalValue => NSDbType(v.decimalValue.get)
-    case _: Dimension.Value.LongValue    => NSDbType(v.longValue.get)
-    case _                               => NSDbType(v.stringValue.get)
-  }
-
-  private def tagFor(v: Tag.Value): NSDbType = v match {
-    case _: Tag.Value.DecimalValue => NSDbType(v.decimalValue.get)
-    case _: Tag.Value.LongValue    => NSDbType(v.longValue.get)
-    case _                         => NSDbType(v.stringValue.get)
   }
 
   override def executeSQLStatement(
