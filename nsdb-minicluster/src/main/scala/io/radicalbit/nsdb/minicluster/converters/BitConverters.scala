@@ -17,10 +17,9 @@
 package io.radicalbit.nsdb.minicluster.converters
 
 import io.radicalbit.nsdb.api.scala.{Namespace, Bit => ApiBit}
-import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common._
-import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
-import io.radicalbit.nsdb.rpc.request.RPCInsert
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
 
 /**
   * Object containing implicit class useful to convert [[Bit]] into [[ApiBit]] and vice versa.
@@ -55,9 +54,9 @@ object BitConverters {
   }
 
   implicit class ApiBitConverter(bit: ApiBit) {
-    private def valueFor(v: RPCInsert.Value): NSDbNumericType = v match {
-      case _: RPCInsert.Value.DecimalValue => NSDbNumericType(v.decimalValue.get)
-      case _: RPCInsert.Value.LongValue    => NSDbNumericType(v.longValue.get)
+    private def valueFor(v: GrpcBit.Value): NSDbNumericType = v match {
+      case _: GrpcBit.Value.DecimalValue => NSDbNumericType(v.decimalValue.get)
+      case _: GrpcBit.Value.LongValue    => NSDbNumericType(v.longValue.get)
     }
 
     private def dimensionFor(v: Dimension.Value): NSDbType = v match {

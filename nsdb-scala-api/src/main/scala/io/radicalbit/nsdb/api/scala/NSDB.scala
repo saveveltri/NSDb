@@ -19,13 +19,12 @@ package io.radicalbit.nsdb.api.scala
 import io.radicalbit.nsdb.api.scala.NSDB._
 import io.radicalbit.nsdb.client.rpc.{TokenApplier, TokenAppliers}
 import io.radicalbit.nsdb.rpc.client.GRPCClient
-import io.radicalbit.nsdb.rpc.common.{Bit => GrpcBit, Dimension, Tag}
+import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.serviceWithExtensions.RPCInsertWithExtension
-import io.radicalbit.nsdb.rpc.GrpcBitConverters._
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
@@ -155,10 +154,13 @@ class NSDB private (host: String,
           database = bit.db,
           namespace = bit.namespace,
           metric = bit.metric,
-          timestamp = bit.timestamp getOrElse System.currentTimeMillis,
-          value = bit.value,
-          dimensions = bit.dimensions.toMap,
-          tags = bit.tags.toMap
+          bit = Some(
+            GrpcBit(
+              timestamp = bit.timestamp getOrElse System.currentTimeMillis,
+              value = bit.value,
+              dimensions = bit.dimensions.toMap,
+              tags = bit.tags.toMap
+            ))
         )
       )
 
@@ -235,7 +237,7 @@ case class Bit protected (db: String,
                           namespace: String,
                           metric: String,
                           timestamp: Option[Long] = None,
-                          value: RPCInsert.Value = RPCInsert.Value.Empty,
+                          value: GrpcBit.Value = GrpcBit.Value.Empty,
                           dimensions: ListBuffer[DimensionAPI] = ListBuffer.empty[DimensionAPI],
                           tags: ListBuffer[TagAPI] = ListBuffer.empty[TagAPI]) {
 
@@ -266,21 +268,21 @@ case class Bit protected (db: String,
     * @param v the Long value.
     * @return a new instance with `v` as the value.
     */
-  def value(v: Long): Bit = copy(value = RPCInsert.Value.LongValue(v))
+  def value(v: Long): Bit = copy(value = GrpcBit.Value.LongValue(v))
 
   /**
     * Adds a Int value to the bit.
     * @param v the Int value.
     * @return a new instance with `v` as the value.
     */
-  def value(v: Int): Bit = copy(value = RPCInsert.Value.LongValue(v))
+  def value(v: Int): Bit = copy(value = GrpcBit.Value.LongValue(v))
 
   /**
     * Adds a Double value to the bit.
     * @param v the Double value.
     * @return a new instance with `v` as the value.
     */
-  def value(v: Double): Bit = copy(value = RPCInsert.Value.DecimalValue(v))
+  def value(v: Double): Bit = copy(value = GrpcBit.Value.DecimalValue(v))
 
   /**
     * Adds a [[java.math.BigDecimal]] value to the bit.

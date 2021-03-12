@@ -27,7 +27,6 @@ import io.radicalbit.nsdb.common.statement.{
   InsertSQLStatement,
   SelectSQLStatement
 }
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
   DropMetric,
   ExecuteDeleteStatement,

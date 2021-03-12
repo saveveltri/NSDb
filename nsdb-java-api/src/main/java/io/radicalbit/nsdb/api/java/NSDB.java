@@ -20,11 +20,13 @@ import io.radicalbit.nsdb.rpc.client.GRPCClient;
 import io.radicalbit.nsdb.client.rpc.TokenApplier;
 import io.radicalbit.nsdb.client.rpc.TokenAppliers;
 import io.radicalbit.nsdb.rpc.common.Dimension;
-import io.radicalbit.nsdb.rpc.common.Tag;
+import io.radicalbit.nsdb.rpc.common.*;
+import io.radicalbit.nsdb.rpc.common.Bit.Value;
 import io.radicalbit.nsdb.rpc.init.InitMetricRequest;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
 import io.radicalbit.nsdb.rpc.requestCommand.DescribeMetric;
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement;
+import scala.Some;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -148,7 +150,7 @@ public class NSDB {
         private final String namespace;
         private final String metric;
         private Long timestamp;
-        private RPCInsert.Value value;
+        private Value value;
         private final Map<String, Dimension> dimensions;
         private final Map<String, Tag> tags;
 
@@ -475,8 +477,9 @@ public class NSDB {
      */
     public CompletableFuture<InsertResult> write(Bit bit) {
         return toJava(client.write(
-                new RPCInsert(bit.db, bit.namespace, bit.metric,
-                        bit.timestamp, bit.value, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(InsertResult::new);
+                new RPCInsert(bit.db, bit.namespace, bit.metric, Some.apply(new io.radicalbit.nsdb.rpc.common.Bit(
+                        bit.timestamp, bit.value, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), scalapb.UnknownFieldSet.empty()
+                )), scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(InsertResult::new);
     }
 
 

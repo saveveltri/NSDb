@@ -16,9 +16,7 @@
 
 package io.radicalbit.nsdb.api.java
 
-import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
-import io.radicalbit.nsdb.rpc.request.RPCInsert
-import io.radicalbit.nsdb.rpc.request.RPCInsert.Value
+import io.radicalbit.nsdb.rpc.common.{Bit, Dimension, Tag}
 
 import scala.collection.JavaConverters._
 
@@ -28,11 +26,11 @@ import scala.collection.JavaConverters._
   */
 protected object ScalaUtils {
 
-  def emptyValue: Value.Empty.type = RPCInsert.Value.Empty
+  def emptyValue: Bit.Value.Empty.type = Bit.Value.Empty
 
-  def longValue(v: Long) = RPCInsert.Value.LongValue(v)
+  def longValue(v: Long) = Bit.Value.LongValue(v)
 
-  def decimalValue(v: Double) = RPCInsert.Value.DecimalValue(v)
+  def decimalValue(v: Double) = Bit.Value.DecimalValue(v)
 
   def longDimension(v: Long) = Dimension(Dimension.Value.LongValue(v))
 

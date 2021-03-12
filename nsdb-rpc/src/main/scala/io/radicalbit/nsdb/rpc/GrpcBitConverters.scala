@@ -19,7 +19,6 @@ package io.radicalbit.nsdb.rpc
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
-import io.radicalbit.nsdb.rpc.request.RPCInsert
 
 /**
   * Object containing convenience methods to convert from common bit to grpc bit and vice versa
